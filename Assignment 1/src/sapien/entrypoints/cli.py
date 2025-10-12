@@ -51,6 +51,8 @@ def main():
     parser.add_argument("--stopwords", action="store_true", help="Remove stopwords")
 
     _ = parser.parse_args()
+    # tokenizer = Tokenizer()
+    # tokenizer.run_tokenizer()
 
 
 if __name__ == "__main__":
