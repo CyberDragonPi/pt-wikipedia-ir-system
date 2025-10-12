@@ -4,7 +4,7 @@ data/
 __pycache__/
 *.py[codz]
 *$py.class
-
+*.arrow
 # C extensions
 *.so
 
