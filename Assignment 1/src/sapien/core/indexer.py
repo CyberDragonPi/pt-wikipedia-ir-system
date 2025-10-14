@@ -68,4 +68,3 @@ class Indexer:
                 batch = reader.get_batch(i)
                 print(f"Batch {i} with {batch.num_rows} rows")
 
-# bzvz promjena 

@@ -1,3 +1,5 @@
+import re
+
 class Tokenizer:
     def __init__(
         self,
@@ -34,3 +36,42 @@ class Tokenizer:
             f"     · Stopwords: {'enabled' if self.stopwords else 'disabled'}\n"
         )
         return configuration
+
+
+    def tokenize(self, text: str):
+        # lowercase
+        if self.lowercase: 
+            text = text.lower()
+            
+        # remove URL's
+        if self.remove_URLs:
+            text = re.sub(r'https?://\S+|www\.\S+', '', text)
+            
+        # remove e-mails
+        if self.remove_emails:
+            text = re.sub(r'\S+@\S+', '', text)
+            
+        # basic tokenization
+        # keep every word that is made of letters and numbers
+        # re.UNICIDE - letters from other languages are included
+        tokens = re.findall(r'\w+', text, flags=re.UNICODE)
+        
+        cleaned_tokens = []
+        for t in tokens:
+            
+            # remove numbers
+            if (self.remove_numbers and t.isdigit()):
+                continue
+            
+            # separate alphanumeric
+            if self.separate_alphanumeric:
+                characters = set(t)
+                # if there are both letters and digits
+                if any(c.isalpha() for c in characters) and any(c.isdigit() for c in characters):
+                    ## splitanje brojeva i slova
+                    splitted = re.findall(r'\D+|\d+', t)
+                
+        return
+                
+            
+        
