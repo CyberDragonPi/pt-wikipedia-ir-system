@@ -44,5 +44,14 @@ class Indexer:
         self.tokenizer = Tokenizer(**tokenizer_params)
         return
 
-    def output_configuration(self):
-        return
+    def output_configuration(self) -> str:
+        indexer_configs = (
+            f"Configuration:\n"
+            f"  · Min term frequency: {self.min_term_freq}\n"
+            f"  · Output directory: {self.output_directory}\n"
+            f"  · Inverted index format: {self.inverted_format}\n"
+            f"  · Forward index: {'enabled' if self.forward_index else 'disabled'}\n"
+        )
+
+        tokenizer_configs = self.tokenizer.output_configuration()
+        return indexer_configs + tokenizer_configs

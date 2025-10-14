@@ -57,7 +57,7 @@ def main():
 
     arguments = vars(parser.parse_args())
     indexer = Indexer(**arguments)
-    indexer.output_configuration()
+    print(indexer.output_configuration())
 
 
 if __name__ == "__main__":
