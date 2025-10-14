@@ -1,5 +1,8 @@
 import logging
 
+import pyarrow
+from pyarrow import ipc
+
 from sapien.core.tokenizer import Tokenizer
 
 
@@ -55,3 +58,12 @@ class Indexer:
 
         tokenizer_configs = self.tokenizer.output_configuration()
         return indexer_configs + tokenizer_configs
+
+    def create_index(self) -> None:
+        with pyarrow.memory_map(self.file_path, "r") as file:
+            reader = ipc.RecordBatchFileReader(source=file, options=None)
+            print(f"Schema:\n{reader.schema}\n")
+
+            for i in range(reader.num_record_batches):
+                batch = reader.get_batch(i)
+                print(f"Batch {i} with {batch.num_rows} rows")
