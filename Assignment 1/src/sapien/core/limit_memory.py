@@ -52,12 +52,13 @@ def memory_monitor_worker(memory_config: MemoryMonitorConfig):
             rss_memory_mb = rss_memory_bytes / (1024 * 1024)
 
             if memory_config.memory_updates:
-                print(f"\r[MemoryGuard] Current usage: {rss_memory_mb:.2f} MB", end="")
+                print(f"[MemoryGuard] Current usage: {rss_memory_mb:.2f} MB", end="")
+                print()
 
             if rss_memory_mb > memory_config.limit_mb:
                 logger.error(
                     f"\n\n[MemoryGuard] CRITICAL: Memory usage ({rss_memory_mb:.2f} MB) exceeded"
-                    f" the limit of {memory_config.limit_mb} MB. Terminating program."
+                    f" the limit of {memory_config.limit_mb} MB. Terminating program.\n"
                 )
 
                 # Use os._exit(1) for an immediate, forceful exit.
@@ -68,7 +69,7 @@ def memory_monitor_worker(memory_config: MemoryMonitorConfig):
             # The process might have already exited, so we can stop the thread.
             break
         except Exception as e:
-            logger.error(f"\n[MemoryGuard] Error in memory monitor: {e}")
+            logger.error(f"\n[MemoryGuard] Error in memory monitor: {e}\n")
             break
 
         time.sleep(memory_config.interval_sec)

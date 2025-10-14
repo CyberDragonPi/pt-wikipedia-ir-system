@@ -1,6 +1,7 @@
 import argparse
 import logging
 
+from sapien.core.indexer import Indexer
 from sapien.core.limit_memory import start_memory_monitor
 from sapien.core.logging import setup_logging
 
@@ -41,6 +42,10 @@ def main():
     parser.add_argument(
         "--remove_numbers", action="store_true", help="Remove tokens that only have numbers"
     )
+    parser.add_argument("--remove_URLs", action="store_true", help="Remove tokens that are URLs")
+    parser.add_argument(
+        "--remove_emails", action="store_true", help="Remove tokens that are email adresses"
+    )
     parser.add_argument(
         "--min_token_length", type=int, default=1, help="Minimum token length to store"
     )
@@ -50,9 +55,9 @@ def main():
     parser.add_argument("--stemmer", action="store_true", help="Enable stemming")
     parser.add_argument("--stopwords", action="store_true", help="Remove stopwords")
 
-    _ = parser.parse_args()
-    # tokenizer = Tokenizer()
-    # tokenizer.run_tokenizer()
+    arguments = vars(parser.parse_args())
+    indexer = Indexer(**arguments)
+    indexer.output_configuration()
 
 
 if __name__ == "__main__":
