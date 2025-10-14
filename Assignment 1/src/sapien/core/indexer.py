@@ -67,3 +67,5 @@ class Indexer:
             for i in range(reader.num_record_batches):
                 batch = reader.get_batch(i)
                 print(f"Batch {i} with {batch.num_rows} rows")
+
+# bzvz promjena 
