@@ -1,8 +1,7 @@
 import re
-import nltk
-from nltk.corpus import stopwords
-from nltk.stem.snowball import SnowballStemmer
+from typing import Optional, Set
 
+from nltk.stem.snowball import SnowballStemmer
 
 
 class Tokenizer:
@@ -17,25 +16,25 @@ class Tokenizer:
         stemmer: bool | int = False,
         stopwords: bool | int = False,
     ):
-        self.separate_alphanumeric = separate_alphanumeric
-        self.remove_numbers = remove_numbers
-        self.remove_URLs = remove_URLs
-        self.remove_emails = remove_emails
-        self.min_token_length = min_token_length
-        self.lowercase = lowercase
-        self.stemmer = stemmer
-        self.stopwords = stopwords
-        
+        self.separate_alphanumeric: bool | int = separate_alphanumeric
+        self.remove_numbers: bool | int = remove_numbers
+        self.remove_URLs: bool | int = remove_URLs
+        self.remove_emails: bool | int = remove_emails
+        self.min_token_length: int = min_token_length
+        self.lowercase: bool | int = lowercase
+        self.stemmer: bool | int = stemmer
+        self.stopwords: bool | int = stopwords
+        self.stemmer_pt: Optional[SnowballStemmer] = None
+        self.stopwords_pt: Set[str] = set()
+
         # defining stemmer
         if self.stemmer:
-            self.stemmer_pt = SnowballStemmer("portuguese") 
-            
+            self.stemmer_pt = SnowballStemmer("portuguese")
+
         # defining stopwords
         if self.stopwords:
             self.stopwords_pt = set(stopwords.words("portuguese"))
-            
-        
-        
+
         return
 
     def output_configuration(self) -> str:
@@ -53,7 +52,7 @@ class Tokenizer:
         )
         return configuration
 
-    def tokenize(self, text: str):
+    def tokenize(self, text: str) -> list[str]:
         # lowercase
         if self.lowercase:
             text = text.lower()
@@ -70,31 +69,31 @@ class Tokenizer:
         # keep every word that is made of letters and numbers
         # re.UNICIDE - letters from other languages are included
         tokens = re.findall(r"\w+", text, flags=re.UNICODE)
-        
+
         # remove numbers
         if self.remove_numbers:
             tokens = [t for t in tokens if not t.isdigit()]
-            
+
         # separate alphanumeric
         if self.separate_alphanumeric:
             new_tokens = []
             for t in tokens:
-                splitted = re.findall(r"\D+|\d+", t) # abc123 → ["abc", "123"]
+                splitted = re.findall(r"\D+|\d+", t)  # abc123 → ["abc", "123"]
                 new_tokens.extend(splitted)
             tokens = new_tokens
-    
+
         # check token length (so expensive operations like stemming arent performed if they shouldnt)
         tokens = [t for t in tokens if len(t) >= self.min_token_length]
-        
+
         # remove stopwords
-        if self.stopwords:
+        if self.stopwords and self.stopwords_pt is not None:
             tokens = [t for t in tokens if t not in self.stopwords_pt]
-            
+
         # stemming
-        if self.stemmer:
+        if self.stemmer and self.stemmer_pt is not None:
             tokens = [self.stemmer_pt.stem(t) for t in tokens]
-            
+
         # check token length again
         tokens = [t for t in tokens if len(t) >= self.min_token_length]
-        
+
         return tokens
