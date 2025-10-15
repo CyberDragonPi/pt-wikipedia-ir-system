@@ -1,7 +1,6 @@
 import logging
 
-import pyarrow
-import pyarrow.dataset
+import pyarrow.dataset as ds
 
 from sapien.core.tokenizer import Tokenizer
 
@@ -60,9 +59,56 @@ class Indexer:
         return indexer_configs + tokenizer_configs
 
     def create_index(self, batch_size: int = 1000) -> None:
-        dataset: pyarrow.dataset.Dataset = pyarrow.dataset.dataset(self.file_path, format="arrow")
-        total = 0
+        if self.forward_index:
+            # self.create_forward_index(batch_size)
+            pass
+        else:
+            self.create_inverted_index(batch_size)
+
+    """def create_forward_index(self, batch_size: int):
+        dataset: ds.FileSystemDataset = ds.dataset(self.file_path, format="arrow")  # type: ignore
+        current_id: int = 0
+        spimi_block_id: int = 0
+        spimi_block = {}
 
         for batch in dataset.to_batches(batch_size=batch_size):
-            batch = batch
-            total += 1
+            title_column = batch.column("title")  # type: ignore
+            text_column = batch.column("text")  # type: ignore
+
+            title_list = [str(t) for t in title_column.to_pylist() if t is not None]  # type: ignore
+            text_list = [str(t) for t in text_column.to_pylist() if t is not None]  # type: ignore
+
+            for title, text in zip(title_list, text_list):
+                if not text.rstrip():
+                    continue
+
+                text_tokens: list[str] = self.tokenizer.tokenize(text)
+                title_tokens: list[str] = self.tokenizer.tokenize(title)
+
+
+                current_id += 1"""
+
+    def create_inverted_index(self, batch_size: int) -> None:
+        dataset: ds.FileSystemDataset = ds.dataset(self.file_path, format="arrow")  # type: ignore
+        current_id: int = 0
+        # spimi_block_id: int = 0
+        # spimi_block: Dict[str, List[Posting]] = {}
+
+        for batch in dataset.to_batches(batch_size=batch_size):
+            title_column = batch.column("title")  # type: ignore
+            text_column = batch.column("text")  # type: ignore
+
+            title_list = [str(t) for t in title_column.to_pylist() if t is not None]  # type: ignore
+            text_list = [str(t) for t in text_column.to_pylist() if t is not None]  # type: ignore
+
+            for title, text in zip(title_list, text_list):
+                if not text.rstrip():
+                    continue  # prazan string
+
+                title += ""
+
+                # doc_id = current_id
+                current_id += 1
+
+                # title_tokens: List[str] = self.tokenizer.tokenize(title)
+                # text_tokens: List[str] = self.tokenizer.tokenize(text)
