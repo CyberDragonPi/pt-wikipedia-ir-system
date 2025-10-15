@@ -1,4 +1,8 @@
 import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem.snowball import SnowballStemmer
+
 
 
 class Tokenizer:
@@ -21,6 +25,17 @@ class Tokenizer:
         self.lowercase = lowercase
         self.stemmer = stemmer
         self.stopwords = stopwords
+        
+        # defining stemmer
+        if self.stemmer:
+            self.stemmer_pt = SnowballStemmer("portuguese") 
+            
+        # defining stopwords
+        if self.stopwords:
+            self.stopwords_pt = set(stopwords.words("portuguese"))
+            
+        
+        
         return
 
     def output_configuration(self) -> str:
@@ -55,19 +70,31 @@ class Tokenizer:
         # keep every word that is made of letters and numbers
         # re.UNICIDE - letters from other languages are included
         tokens = re.findall(r"\w+", text, flags=re.UNICODE)
-
-        cleaned_tokens = []
-        for t in tokens:
-            # remove numbers
-            if self.remove_numbers and t.isdigit():
-                continue
-
-            # separate alphanumeric
-            if self.separate_alphanumeric:
-                characters = set(t)
-                # if there are both letters and digits
-                if any(c.isalpha() for c in characters) and any(c.isdigit() for c in characters):
-                    ## splitanje brojeva i slova
-                    splitted = re.findall(r"\D+|\d+", t)
-
-        return
+        
+        # remove numbers
+        if self.remove_numbers:
+            tokens = [t for t in tokens if not t.isdigit()]
+            
+        # separate alphanumeric
+        if self.separate_alphanumeric:
+            new_tokens = []
+            for t in tokens:
+                splitted = re.findall(r"\D+|\d+", t) # abc123 → ["abc", "123"]
+                new_tokens.extend(splitted)
+            tokens = new_tokens
+    
+        # check token length (so expensive operations like stemming arent performed if they shouldnt)
+        tokens = [t for t in tokens if len(t) >= self.min_token_length]
+        
+        # remove stopwords
+        if self.stopwords:
+            tokens = [t for t in tokens if t not in self.stopwords_pt]
+            
+        # stemming
+        if self.stemmer:
+            tokens = [self.stemmer_pt.stem(t) for t in tokens]
+            
+        # check token length again
+        tokens = [t for t in tokens if len(t) >= self.min_token_length]
+        
+        return tokens

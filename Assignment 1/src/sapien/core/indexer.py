@@ -106,9 +106,20 @@ class Indexer:
                     continue  # prazan string
 
                 title += ""
+                
+                # za test samo ispis prvog dokuemnta
+                if current_id == 0:
+                    print("Title:", title)
+                    print("Text:", text[:500], "...")  # prvih 500 znakova
 
+                title_tokens = self.tokenizer.tokenize(title)
+                text_tokens = self.tokenizer.tokenize(text)
+                
+                print("Title tokens:", title_tokens)
+                print("Text tokens:", text_tokens[:50], "...")
+
+
+                return # za test samo 
+            
                 # doc_id = current_id
                 current_id += 1
-
-                # title_tokens: List[str] = self.tokenizer.tokenize(title)
-                # text_tokens: List[str] = self.tokenizer.tokenize(text)
