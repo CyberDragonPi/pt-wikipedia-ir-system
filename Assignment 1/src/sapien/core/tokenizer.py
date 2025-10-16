@@ -70,10 +70,6 @@ class Tokenizer:
         # re.UNICIDE - letters from other languages are included
         tokens = re.findall(r"\w+", text, flags=re.UNICODE)
 
-        # remove numbers
-        if self.remove_numbers:
-            tokens = [t for t in tokens if not t.isdigit()]
-
         # separate alphanumeric
         if self.separate_alphanumeric:
             new_tokens = []
@@ -81,6 +77,10 @@ class Tokenizer:
                 splitted = re.findall(r"\D+|\d+", t)  # abc123 → ["abc", "123"]
                 new_tokens.extend(splitted)
             tokens = new_tokens
+
+        # remove numbers
+        if self.remove_numbers:
+            tokens = [t for t in tokens if not t.isdigit()]
 
         # check token length (so expensive operations like stemming arent performed if they shouldnt)
         tokens = [t for t in tokens if len(t) >= self.min_token_length]
