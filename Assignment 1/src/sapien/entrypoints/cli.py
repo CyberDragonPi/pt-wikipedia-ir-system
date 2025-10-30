@@ -57,7 +57,7 @@ def main():
 
     arguments = vars(parser.parse_args())
     indexer = Indexer(**arguments)
-    indexer.create_index(batch_size=500, only_merge=True)
+    indexer.create_index(batch_size=500)
 
 
 if __name__ == "__main__":

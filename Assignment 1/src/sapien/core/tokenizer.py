@@ -68,11 +68,11 @@ class Tokenizer:
         # basic tokenization
         # keep every word that is made of letters and numbers
         # re.UNICIDE - letters from other languages are included
-        tokens = re.findall(r"\w+", text, flags=re.UNICODE)
+        tokens: list[str] = re.findall(r"\w+", text, flags=re.UNICODE)
 
         # separate alphanumeric
         if self.separate_alphanumeric:
-            new_tokens = []
+            new_tokens: list[str] = []
             for t in tokens:
                 splitted = re.findall(r"\D+|\d+", t)  # abc123 → ["abc", "123"]
                 new_tokens.extend(splitted)
@@ -86,7 +86,7 @@ class Tokenizer:
         tokens = [t for t in tokens if len(t) >= self.min_token_length]
 
         # remove stopwords
-        if self.stopwords and self.stopwords_pt is not None:
+        if self.stopwords:
             tokens = [t for t in tokens if t not in self.stopwords_pt]
 
         # stemming

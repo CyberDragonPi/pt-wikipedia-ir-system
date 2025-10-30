@@ -1,16 +1,10 @@
 import json
-import logging
 import os
 import gc
 import psutil
 import time
-import heapq
-from collections import defaultdict, OrderedDict
-from typing import Dict, List, IO, Tuple
-
 import pyarrow.dataset as ds
 
-from sapien.core.posting import Posting
 from sapien.core.tokenizer import Tokenizer
 
 
@@ -32,7 +26,6 @@ class Indexer:
         stopwords: bool | int = False,
     ):
         # najjednostavnije je napraviti logger tako da se samo svakom objektu da njegov vlastiti
-
         # --- parametri samog indexera---
         self.file_path = file_path
         self.min_term_freq = min_term_freq
@@ -42,7 +35,7 @@ class Indexer:
         self.inverted_format = inverted_format
         self.current_doc_id = 0
         self.spimi_block_id = 0
-        self.spimi_block: dict[str, list] = defaultdict(list)
+        self.spimi_block: dict[str, list[tuple[int, int]]] = dict()
         self.block_paths_file = os.path.join(self.output_directory, "block_paths.txt")
 
         # --- parametri tokenizera---
@@ -60,6 +53,7 @@ class Indexer:
         self.current_process = psutil.Process(os.getpid())
         return
 
+
     def output_configuration(self) -> str:
         indexer_configs = (
             f"Configuration:\n"
@@ -68,22 +62,25 @@ class Indexer:
             f"  · Inverted index format: {self.inverted_format}\n"
             f"  · Forward index: {'enabled' if self.forward_index else 'disabled'}\n"
         )
-
         tokenizer_configs = self.tokenizer.output_configuration()
         return indexer_configs + tokenizer_configs
 
+
+    def store_metadata(self):
+        metadata_dict: dict[str, str] = dict()
+        pass
+
+
+
     def create_index(self, batch_size: int = 1000, only_merge: bool = False) -> None:
         print(self.output_configuration())
-        time.sleep(10)
+        time.sleep(5)
         if self.forward_index:
             # self.create_forward_index(batch_size)
             pass
         else:
             if not only_merge:
                 self.create_inverted_index(batch_size)
-            
-            self.merge_spimi_blocks_from_list()
-            self.delete_spimi_block_files()
 
     """def create_forward_index(self, batch_size: int):
         dataset: ds.FileSystemDataset = ds.dataset(self.file_path, format="arrow")  # type: ignore
@@ -105,7 +102,6 @@ class Indexer:
                 text_tokens: list[str] = self.tokenizer.tokenize(text)
                 title_tokens: list[str] = self.tokenizer.tokenize(title)
 
-
                 current_id += 1"""
 
     def create_inverted_index(self, batch_size: int, batches_to_flush: int = 40):
@@ -117,16 +113,17 @@ class Indexer:
             num_rows = batch.num_rows
             for i in range(num_rows):
                 text = batch["text"][i].as_py()
-                if not text.strip() or len(text.strip()) == 0:
+                if not text.strip():
                     continue
 
                 tokens = self.tokenizer.tokenize(text)
-                term_positions = defaultdict(list)
-                for pos, token in enumerate(tokens):
-                    term_positions[token].append(pos)
 
-                for token, positions in term_positions.items():
-                    self.spimi_block[token].append([self.current_doc_id, tuple(positions)])
+                term_freqs: dict[str, int] = dict()
+                for token in tokens:
+                    term_freqs[token] += 1
+
+                for token, freq in term_freqs.items():
+                    self.spimi_block[token].append((self.current_doc_id, freq))
 
                 self.current_doc_id += 1
 
@@ -136,7 +133,6 @@ class Indexer:
                 batches_counter = 0
 
             batches_counter += 1
-            
             print(f"Processed batch {current_batch}")
             current_batch += 1
 
@@ -163,84 +159,3 @@ class Indexer:
         del sorted_terms
         time.sleep(0.05) 
         gc.collect()
-
-
-    def merge_spimi_blocks_from_list(self):
-        with open(self.block_paths_file, "r") as f:
-            all_blocks = [line.strip().replace("\\", "/") for line in f if line.strip()]
-
-        files = [open(p, "r", encoding="utf-8") for p in all_blocks]
-
-        def read_next(f):
-            line = f.readline()
-            if not line:
-                return None
-            obj = json.loads(line)
-            return next(iter(obj.items()))
-
-        heap = []
-        for idx, f in enumerate(files):
-            pair = read_next(f)
-            if pair:
-                token, postings = pair
-                heap.append((token, idx, postings))
-        heapq.heapify(heap)
-
-        final_index_path = os.path.join(self.output_directory, "final_index.json")
-        with open(final_index_path, "w", encoding="utf-8") as out:
-            out.write("{\n")
-            first_token_written = False
-            current_token = None
-            current_postings = []
-
-            write_buffer = []
-
-            while heap:
-                token, file_idx, postings = heapq.heappop(heap)
-
-                if token == current_token:
-                    current_postings.extend(postings)
-                else:
-                    if current_token is not None:
-                        entry = f'{json.dumps(current_token)}: {json.dumps(current_postings)}'
-                        write_buffer.append(entry)
-                        if len(write_buffer) >= 100:
-                            if first_token_written:
-                                out.write(",\n")
-                            out.write(",\n".join(write_buffer))
-                            write_buffer.clear()
-                            first_token_written = True
-
-                        del current_postings
-
-                    current_token = token
-                    current_postings = postings
-
-                next_pair = read_next(files[file_idx])
-                if next_pair:
-                    next_token, next_postings = next_pair
-                    heapq.heappush(heap, (next_token, file_idx, next_postings))
-
-            if current_token is not None:
-                entry = f'{json.dumps(current_token)}: {json.dumps(current_postings)}'
-                write_buffer.append(entry)
-
-            if write_buffer:
-                if first_token_written:
-                    out.write(",\n")
-                out.write(",\n".join(write_buffer))
-
-            out.write("\n}")
-
-        for f in files:
-            f.close()
-
-        self.delete_spimi_block_files()
-
-    def delete_spimi_block_files(self):
-        with open(self.block_paths_file, "r") as f:
-            block_paths = [line.strip().replace("\\", "/") for line in f if line.strip()]
-
-        for path in block_paths:
-            if os.path.exists(path):
-                os.remove(path)
