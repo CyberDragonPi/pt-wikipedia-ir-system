@@ -1,8 +1,9 @@
+import gc
 import json
 import os
-import gc
-import psutil
 import time
+
+import psutil
 import pyarrow.dataset as ds
 
 from sapien.core.tokenizer import Tokenizer
@@ -47,12 +48,11 @@ class Indexer:
             "min_token_length": min_token_length,
             "lowercase": lowercase,
             "stemmer": stemmer,
-            "stopwords": stopwords,
+            "use_stopwords": stopwords,
         }
         self.tokenizer = Tokenizer(**tokenizer_params)
         self.current_process = psutil.Process(os.getpid())
         return
-
 
     def output_configuration(self) -> str:
         indexer_configs = (
@@ -65,12 +65,9 @@ class Indexer:
         tokenizer_configs = self.tokenizer.output_configuration()
         return indexer_configs + tokenizer_configs
 
-
     def store_metadata(self):
         metadata_dict: dict[str, str] = dict()
         pass
-
-
 
     def create_index(self, batch_size: int = 1000, only_merge: bool = False) -> None:
         print(self.output_configuration())
@@ -141,7 +138,6 @@ class Indexer:
 
         self.flush_block()
 
-
     def flush_block(self):
         if not self.spimi_block:
             return
@@ -157,5 +153,5 @@ class Indexer:
         self.spimi_block.clear()
         self.spimi_block_id += 1
         del sorted_terms
-        time.sleep(0.05) 
+        time.sleep(0.05)
         gc.collect()

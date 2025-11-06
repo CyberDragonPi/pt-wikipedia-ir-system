@@ -1,6 +1,7 @@
 import re
 from typing import Optional, Set
 
+from nltk.corpus import stopwords
 from nltk.stem.snowball import SnowballStemmer
 
 
@@ -14,7 +15,7 @@ class Tokenizer:
         min_token_length: int = 1,
         lowercase: bool | int = False,
         stemmer: bool | int = False,
-        stopwords: bool | int = False,
+        use_stopwords: bool | int = False,
     ):
         self.separate_alphanumeric: bool | int = separate_alphanumeric
         self.remove_numbers: bool | int = remove_numbers
@@ -23,7 +24,7 @@ class Tokenizer:
         self.min_token_length: int = min_token_length
         self.lowercase: bool | int = lowercase
         self.stemmer: bool | int = stemmer
-        self.stopwords: bool | int = stopwords
+        self.use_stopwords: bool | int = use_stopwords
         self.stemmer_pt: Optional[SnowballStemmer] = None
         self.stopwords_pt: Set[str] = set()
 
@@ -32,7 +33,7 @@ class Tokenizer:
             self.stemmer_pt = SnowballStemmer("portuguese")
 
         # defining stopwords
-        if self.stopwords:
+        if self.use_stopwords:
             self.stopwords_pt = set(stopwords.words("portuguese"))
 
         return
@@ -48,7 +49,7 @@ class Tokenizer:
             f"     · Min token length: {self.min_token_length}\n"
             f"     · Lowercase: {'enabled' if self.lowercase else 'disabled'}\n"
             f"     · Stemmer: {'enabled' if self.stemmer else 'disabled'}\n"
-            f"     · Stopwords: {'enabled' if self.stopwords else 'disabled'}\n"
+            f"     · Stopwords: {'enabled' if self.use_stopwords else 'disabled'}\n"
         )
         return configuration
 
@@ -82,16 +83,15 @@ class Tokenizer:
         if self.remove_numbers:
             tokens = [t for t in tokens if not any(c.isdigit() for c in t)]
 
-
         # check token length (so expensive operations like stemming arent performed if they shouldnt)
         tokens = [t for t in tokens if len(t) >= self.min_token_length]
 
         # remove stopwords
-        if self.stopwords:
+        if self.use_stopwords:
             tokens = [t for t in tokens if t not in self.stopwords_pt]
 
         # stemming
         if self.stemmer and self.stemmer_pt is not None:
             tokens = [self.stemmer_pt.stem(t) for t in tokens]
-            
+
         return tokens
