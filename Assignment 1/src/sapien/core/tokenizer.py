@@ -1,11 +1,16 @@
 import re
 from typing import Optional, Set
 
+from functools import lru_cache
 from nltk.corpus import stopwords
 from nltk.stem.snowball import SnowballStemmer
 
 
 class Tokenizer:
+    _url_regex = re.compile(r"https?://\S+|www\.\S+", flags=re.UNICODE)
+    _email_regex = re.compile(r"\S+@\S+", flags=re.UNICODE)
+
+
     def __init__(
         self,
         separate_alphanumeric: bool | int = False,
@@ -31,6 +36,12 @@ class Tokenizer:
         # defining stemmer
         if self.stemmer:
             self.stemmer_pt = SnowballStemmer("portuguese")
+            @lru_cache(maxsize=100000)
+            def cached_stem(word: str) -> str:
+                return self.stemmer_pt.stem(word)
+
+            self._cached_stem = cached_stem
+            
 
         # defining stopwords
         if self.use_stopwords:
@@ -60,11 +71,11 @@ class Tokenizer:
 
         # remove URL's
         if self.remove_URLs:
-            text = re.sub(r"https?://\S+|www\.\S+", "", text)
+            text = self._url_regex.sub("", text)
 
-        # remove e-mails
+        # remove email's 
         if self.remove_emails:
-            text = re.sub(r"\S+@\S+", "", text)
+            text = self._email_regex.sub("", text)
 
         # basic tokenization
         # keep every word that is made of letters and numbers
@@ -92,6 +103,6 @@ class Tokenizer:
 
         # stemming
         if self.stemmer and self.stemmer_pt is not None:
-            tokens = [self.stemmer_pt.stem(t) for t in tokens]
+            tokens = [self._cached_stem(t) for t in tokens]
 
         return tokens

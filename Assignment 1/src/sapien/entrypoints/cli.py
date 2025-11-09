@@ -105,7 +105,7 @@ def parse_arguments():
         remove_URLs=True,
         remove_emails=True,
         lowercase=True,
-        stemmer=False,
+        stemmer=True,
         stopwords=False,
     )
 
