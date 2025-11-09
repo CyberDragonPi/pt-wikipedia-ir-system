@@ -1,9 +1,9 @@
+import gc
 import json
 import os
 import psutil
 import glob
 import heapq
-import gc
 import pyarrow.dataset as ds
 from collections import defaultdict
 from contextlib import ExitStack
@@ -54,7 +54,7 @@ class Indexer:
             "min_token_length": min_token_length,
             "lowercase": lowercase,
             "stemmer": stemmer,
-            "stopwords": stopwords,
+            "use_stopwords": stopwords,
         }
         self.tokenizer = Tokenizer(**tokenizer_params)
         self.current_process = psutil.Process(os.getpid())
@@ -74,7 +74,6 @@ class Indexer:
             "stopwords": bool(stopwords),
         }
 
-
     def output_configuration(self) -> str:
         indexer_configs = (
             f"Configuration:\n"
@@ -84,7 +83,6 @@ class Indexer:
         )
         tokenizer_configs = self.tokenizer.output_configuration()
         return indexer_configs + tokenizer_configs
-
 
     def store_metadata(self):
         path = os.path.join(self.output_directory, "metadata.jsonl")
