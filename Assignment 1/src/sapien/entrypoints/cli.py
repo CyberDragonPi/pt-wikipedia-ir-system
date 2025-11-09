@@ -1,6 +1,9 @@
 import argparse
 import logging
+import gc
+import pyarrow.dataset as ds
 
+from time import time
 from sapien.core.indexer import Indexer
 from sapien.core.limit_memory import start_memory_monitor
 from sapien.core.logging import setup_logging
@@ -9,14 +12,14 @@ setup_logging(logging.INFO)
 start_memory_monitor(show_memory_updates=True)
 
 
-def main():
-    # TODO continue here
+
+def parse_arguments():
     parser = argparse.ArgumentParser(description="Sapien Indexer CLI")
 
     # basic arguments for the indexer
     parser.add_argument("file_path", type=str, help="Path to the file to index")
     parser.add_argument(
-        "--min_term_freq", type=int, default=1, help="Minimum term frequency to store"
+        "--min_term_freq", type=int, default=5, help="Minimum term frequency in document to store"
     )
     parser.add_argument(
         "--output_directory",
@@ -24,40 +27,126 @@ def main():
         default="./output",
         help="Directory to store generated files",
     )
-    parser.add_argument(
-        "--forward_index", action="store_true", help="Enable creation of forward index"
-    )
-    parser.add_argument(
-        "--inverted_format",
-        type=str,
-        choices=["json", "csv"],
-        default="json",
-        help="Output format of inverted index",
-    )
 
     # tokenizer arguments
     parser.add_argument(
-        "--separate_alphanumeric", action="store_true", help="Separate alphanumeric tokens"
+        "--separate_alphanumeric",
+        dest="separate_alphanumeric",
+        action="store_true",
+        help="Separate alphanumeric tokens (default: True)",
     )
     parser.add_argument(
-        "--remove_numbers", action="store_true", help="Remove tokens that only have numbers"
+        "--no-separate_alphanumeric",
+        dest="separate_alphanumeric",
+        action="store_false",
+        help="Do not separate alphanumeric tokens",
     )
-    parser.add_argument("--remove_URLs", action="store_true", help="Remove tokens that are URLs")
-    parser.add_argument(
-        "--remove_emails", action="store_true", help="Remove tokens that are email adresses"
-    )
-    parser.add_argument(
-        "--min_token_length", type=int, default=1, help="Minimum token length to store"
-    )
-    parser.add_argument(
-        "--lowercase", action="store_true", help="Convert tokens to lowercase before creating index"
-    )
-    parser.add_argument("--stemmer", action="store_true", help="Enable stemming")
-    parser.add_argument("--stopwords", action="store_true", help="Remove stopwords")
 
-    arguments = vars(parser.parse_args())
+    parser.add_argument(
+        "--remove_numbers",
+        dest="remove_numbers",
+        action="store_true",
+        help="Remove numeric-only tokens (default: True)",
+    )
+    parser.add_argument(
+        "--no-remove_numbers",
+        dest="remove_numbers",
+        action="store_false",
+        help="Keep numeric-only tokens",
+    )
+
+    parser.add_argument(
+        "--remove_URLs", dest="remove_URLs", action="store_true", help="Remove URLs (default: True)"
+    )
+    parser.add_argument(
+        "--no-remove_URLs", dest="remove_URLs", action="store_false", help="Keep URLs"
+    )
+
+    parser.add_argument(
+        "--remove_emails",
+        dest="remove_emails",
+        action="store_true",
+        help="Remove emails (default: True)",
+    )
+    parser.add_argument(
+        "--no-remove_emails", dest="remove_emails", action="store_false", help="Keep emails"
+    )
+
+    parser.add_argument(
+        "--lowercase",
+        dest="lowercase",
+        action="store_true",
+        help="Convert to lowercase (default: True)",
+    )
+    parser.add_argument(
+        "--no-lowercase", dest="lowercase", action="store_false", help="Keep case as-is"
+    )
+
+    parser.add_argument(
+        "--stemmer", dest="stemmer", action="store_true", help="Enable stemming (default: True)"
+    )
+    parser.add_argument(
+        "--no-stemmer", dest="stemmer", action="store_false", help="Disable stemming"
+    )
+
+    parser.add_argument(
+        "--stopwords",
+        dest="stopwords",
+        action="store_true",
+        help="Remove stopwords (default: True)",
+    )
+    parser.add_argument(
+        "--no-stopwords", dest="stopwords", action="store_false", help="Keep stopwords"
+    )
+
+    parser.set_defaults(
+        separate_alphanumeric=True,
+        remove_numbers=True,
+        remove_URLs=True,
+        remove_emails=True,
+        lowercase=True,
+        stemmer=False,
+        stopwords=False,
+    )
+
+    return vars(parser.parse_args())
+
+
+
+def main():
+    arguments = parse_arguments()
     indexer = Indexer(**arguments)
-    indexer.create_index(batch_size=500)
+    indexer.store_metadata()
+
+    #spimi_merger = SpimiMerger(indexer.block_paths_file)
+    #spimi_merger.merge_spimi_blocks()
+
+    dataset = indexer.load_dataset()
+
+    doc_id = 0
+    skipped = 0
+    for i, batch in enumerate(dataset.to_batches(batch_size=750)):
+        batch_start_time = time()
+        text_col = batch.column("text")
+
+        print(f"\nProcessing batch {i + 1} with {batch.num_rows} rows")
+        for j, value in enumerate(text_col):
+            text = value.as_py()
+            doc_id += 1
+            if not text or not text.strip():
+                skipped += 1
+                continue
+
+            tokens = indexer.tokenizer.tokenize(text)
+            indexer.add_document(doc_id, tokens)
+
+        batch_end_time = time()
+        print(f"Batch {i + 1} processed in {batch_end_time - batch_start_time:.2f} seconds")
+
+    indexer.finalize()
+    del dataset
+    gc.collect()
+    indexer.merge_blocks()
 
 
 if __name__ == "__main__":

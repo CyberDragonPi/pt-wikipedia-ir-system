@@ -82,7 +82,6 @@ class Tokenizer:
         if self.remove_numbers:
             tokens = [t for t in tokens if not any(c.isdigit() for c in t)]
 
-
         # check token length (so expensive operations like stemming arent performed if they shouldnt)
         tokens = [t for t in tokens if len(t) >= self.min_token_length]
 
@@ -93,5 +92,5 @@ class Tokenizer:
         # stemming
         if self.stemmer and self.stemmer_pt is not None:
             tokens = [self.stemmer_pt.stem(t) for t in tokens]
-            
+
         return tokens
