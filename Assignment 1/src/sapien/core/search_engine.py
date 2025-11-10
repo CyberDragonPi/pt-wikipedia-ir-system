@@ -1,7 +1,8 @@
 import json
 import math
+import os
 from collections import defaultdict
-
+import sqlite3
 from sapien.core.tokenizer import Tokenizer
 
 
@@ -83,6 +84,59 @@ class SearchEngine:
                 if term == t:
                     return postings
             return []
+        
+    def check_database(database_path="output/forward_index.db"):
+        if not os.path.exists(database_path):
+            print(f"Database file not found at {database_path}")
+            return False
+
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+        
+        # Dohvati sve tablice u bazi
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = cursor.fetchall()
+        
+        # get row with given doc_id
+        doc_id = 2
+        cursor.execute(f"SELECT title, text FROM documents WHERE doc_id = {doc_id}")
+        result = cursor.fetchone()
+        print(result)
+        
+        conn.close()
+
+        if not tables:
+            print(f"Database at {database_path} is empty (no tables).")
+            return False
+        
+        print(f"Database loaded successfully! Tables found: {[t[0] for t in tables]}")
+        
+        return True
+    
+    def get_document_by_id(doc_id: int, database_path="output/forward_index.db"):
+        if not os.path.exists(database_path):
+            print(f"Database file not found at {database_path}")
+            return False
+
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+        
+        # Dohvati sve tablice u bazi
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = cursor.fetchall()
+        
+        # get row with given doc_id
+        cursor.execute(f"SELECT title, text FROM documents WHERE doc_id = {doc_id}")
+        result = cursor.fetchone()
+        print(result)
+        
+        conn.close()
+        
+        if result:
+            title, text = result
+            return {"doc_id": doc_id, "title": title, "text": text}
+        else:
+            return None
 
     def search(self, query: str, top_k: int = 10, k: float = 1.2, b: float = 0.75) -> list[dict]:
         print(f"this is query before tokenization: {query}")
@@ -110,7 +164,13 @@ class SearchEngine:
                 scores[doc_id] = scores.get(doc_id, 0) + score
 
         ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        return ranked[:top_k]
+        ranked_documents = []
+        for doc_id, score in ranked[:top_k]:
+            document = SearchEngine.get_document_by_id(doc_id)
+            document["score"] = score
+            ranked_documents.append(document)
+            
+        return ranked_documents
 
     def search_similar(self, document_id: int):
         pass

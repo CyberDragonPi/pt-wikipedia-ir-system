@@ -14,7 +14,13 @@ def search(query: str, num_results: int = 10) -> SearchResponse:
     """Search for documents matching the given query."""
     searcher = SearchEngine()
     ranked = searcher.search(query)
-    print(ranked)
+    for document in ranked:
+        print(f"DOC_ID {document['doc_id']}")
+        print(f"SCORE: {document['score']}")
+        print(f"TITLE: {document['title']}")
+        print(f"TEXT: {document['text']}")
+        print("-" * 60)
+        
     return SearchResponse(
         results=[
             Document(id=1, title="Document 1", content="Content 1"),
