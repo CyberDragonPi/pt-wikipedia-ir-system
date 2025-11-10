@@ -4,8 +4,10 @@ import os
 import psutil
 import glob
 import heapq
+import sqlite3
 import pyarrow.dataset as ds
 from collections import defaultdict
+from time import time
 from contextlib import ExitStack
 
 from sapien.core.tokenizer import Tokenizer
@@ -42,8 +44,8 @@ class Indexer:
 
         self.doc_lengths = {}
         self.doc_count = 0
-        self.doc_stats_path = os.path.join(self.output_directory, "doc_stats.jsonl")
-        self.block_paths_file = os.path.join(self.output_directory, "block_paths.txt")
+        self.documents_stats_path = os.path.join(self.output_directory, "documents_stats.jsonl")
+        self.database_path = "output\\forward_index.db"
 
         # --- parametri tokenizera---
         tokenizer_params = {
@@ -74,6 +76,7 @@ class Indexer:
             "stopwords": bool(stopwords),
         }
 
+
     def output_configuration(self) -> str:
         indexer_configs = (
             f"Configuration:\n"
@@ -84,10 +87,92 @@ class Indexer:
         tokenizer_configs = self.tokenizer.output_configuration()
         return indexer_configs + tokenizer_configs
 
+
     def store_metadata(self):
-        path = os.path.join(self.output_directory, "metadata.jsonl")
+        path = os.path.join(self.output_directory, "indexer_metadata.jsonl")
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.metadata, f, indent=4, ensure_ascii=False)
+
+
+    def create_inverted_index(self):
+        dataset = self.load_dataset()
+
+        document_id = 0
+        skipped = 0
+        for i, batch in enumerate(dataset.to_batches(batch_size=750)):
+            batch_start_time = time()
+            text_col = batch.column("text")
+
+            print(f"\nProcessing batch {i + 1} with {batch.num_rows} rows")
+            for j, value in enumerate(text_col):
+                text = value.as_py()
+                document_id += 1
+                if not text or not text.strip():
+                    skipped += 1
+                    continue
+
+                tokens = self.tokenizer.tokenize(text)
+                self.add_document(document_id, tokens)
+
+            batch_end_time = time()
+            print(f"Batch {i + 1} processed in {batch_end_time - batch_start_time:.2f} seconds")
+
+        self.finalize()
+        del dataset
+        gc.collect()
+        self.merge_blocks()
+
+
+    def create_forward_index(self, ):
+        dataset = self.load_dataset()
+
+        conn = sqlite3.connect(self.database_path)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS documents (
+                doc_id INTEGER PRIMARY KEY,
+                title TEXT,
+                text TEXT
+            )
+        """)
+        conn.commit()
+
+        document_id = 0
+        skipped = 0
+
+        for i, batch in enumerate(dataset.to_batches(batch_size=1000)):
+            batch_start_time = time()
+
+            title_column = batch.column("title")
+            text_column = batch.column("text")
+
+            print(f"\nProcessing batch {i + 1} with {batch.num_rows} rows")
+
+            for j in range(batch.num_rows):
+                title = title_column[j].as_py()
+                text = text_column[j].as_py()
+                document_id += 1
+
+                if not text or not text.strip():
+                    skipped += 1
+                    continue
+
+                cursor.execute(
+                    "INSERT INTO documents (doc_id, title, text) VALUES (?, ?, ?)",
+                    (document_id, title, text)
+                )
+
+            conn.commit()
+
+            batch_end_time = time()
+            print(f"Batch {i + 1} processed in {batch_end_time - batch_start_time:.2f} seconds")
+
+        conn.close()
+
+        del dataset, title_column, text_column, title, text
+        gc.collect()
+        print(f"Forward index created. Total documents: {document_id}, skipped: {skipped}")
 
 
     def load_dataset(self) -> ds.FileSystemDataset:
@@ -106,7 +191,7 @@ class Indexer:
 
         self.doc_lengths[doc_id] = valid_tokens
         self.doc_count += 1
-        with open(self.doc_stats_path, "a", encoding="utf-8") as stats_file:
+        with open(self.documents_stats_path, "a", encoding="utf-8") as stats_file:
             stats_file.write(json.dumps({"doc_id": doc_id, "length": valid_tokens}) + "\n")
 
         for term, freq in term_freq.items():
@@ -125,7 +210,7 @@ class Indexer:
     def _write_block(self):
         """Writes one sorted block to a .jsonl file (one term per line)"""
         self.block_count += 1
-        block_path = os.path.join(self.output_directory, f"{self.block_count}.jsonl")
+        block_path = os.path.join(self.output_directory, f"block_{self.block_count}.jsonl")
         sorted_index = dict(sorted(self.inverted_index.items()))
 
         with open(block_path, "w", encoding="utf-8") as f:
@@ -154,16 +239,15 @@ class Indexer:
         metadata = {
             "doc_count": self.doc_count,
             "total_tokens": self.total_tokens,
-            "avg_doc_length": avg_doc_length,
-            "doc_stats_file": os.path.basename(self.doc_stats_path),
+            "avg_doc_length": avg_doc_length
         }
 
         meta_path = os.path.join(self.output_directory, "documents_metadata.jsonl")
         with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=4)
 
-        print(f"Metadata saved to {meta_path}")
-        print(f"Document stats written to {self.doc_stats_path}")
+        print(f"Documents Metadata saved to {meta_path}")
+        print(f"Documents stats written to {self.documents_stats_path}")
 
 
     def _clear_memory_before_merge(self):
@@ -192,7 +276,7 @@ class Indexer:
         block_files = sorted(
             f
             for f in glob.glob(os.path.join(self.output_directory, "*.jsonl"))
-            if not f.endswith(("final_index.jsonl", "doc_stats.jsonl", "metadata.jsonl", "documents_metadata.jsonl"))
+            if not f.endswith(("final_index.jsonl", "documents_stats.jsonl", "metadata.jsonl", "documents_metadata.jsonl"))
         )
 
         if not block_files:
@@ -257,6 +341,7 @@ class Indexer:
 
         os.rename(temp_index_path, final_index_path)
         print(f"Merged {len(block_files)} blocks, {term_count} terms written to {final_index_path}")
+        self._delete_temporary_blocks()
 
 
     @staticmethod
@@ -277,3 +362,16 @@ class Indexer:
             data = json.loads(line)
             term, postings = next(iter(data.items()))
             yield term, postings
+
+
+    def _delete_temporary_blocks(self):
+        pattern = os.path.join(self.output_directory, "block_*.jsonl")
+        files_to_delete = glob.glob(pattern)
+
+        for f in files_to_delete:
+            try:
+                os.remove(f)
+            except Exception as e:
+                print(f"Failed to delete {f}: {e}")
+
+        print(f"Deleted {len(files_to_delete)} temporary blocks.")

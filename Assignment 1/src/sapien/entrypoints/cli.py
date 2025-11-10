@@ -105,7 +105,7 @@ def parse_arguments():
         remove_URLs=True,
         remove_emails=True,
         lowercase=True,
-        stemmer=False,
+        stemmer=True,
         stopwords=False,
     )
 
@@ -121,32 +121,9 @@ def main():
     #spimi_merger = SpimiMerger(indexer.block_paths_file)
     #spimi_merger.merge_spimi_blocks()
 
-    dataset = indexer.load_dataset()
-
-    doc_id = 0
-    skipped = 0
-    for i, batch in enumerate(dataset.to_batches(batch_size=750)):
-        batch_start_time = time()
-        text_col = batch.column("text")
-
-        print(f"\nProcessing batch {i + 1} with {batch.num_rows} rows")
-        for j, value in enumerate(text_col):
-            text = value.as_py()
-            doc_id += 1
-            if not text or not text.strip():
-                skipped += 1
-                continue
-
-            tokens = indexer.tokenizer.tokenize(text)
-            indexer.add_document(doc_id, tokens)
-
-        batch_end_time = time()
-        print(f"Batch {i + 1} processed in {batch_end_time - batch_start_time:.2f} seconds")
-
-    indexer.finalize()
-    del dataset
-    gc.collect()
-    indexer.merge_blocks()
+    indexer.create_inverted_index()
+    indexer.create_forward_index()
+    
 
 
 if __name__ == "__main__":
