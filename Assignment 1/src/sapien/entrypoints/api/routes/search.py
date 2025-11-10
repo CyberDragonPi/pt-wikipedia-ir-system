@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from sapien.core.model import Document
+from sapien.core.search_engine import SearchEngine
 from sapien.entrypoints.api.model import SearchResponse
 
 router = APIRouter(tags=["search engine"])
@@ -11,6 +12,9 @@ router = APIRouter(tags=["search engine"])
 @router.get("/search")
 def search(query: str, num_results: int = 10) -> SearchResponse:
     """Search for documents matching the given query."""
+    searcher = SearchEngine()
+    ranked = searcher.search(query)
+    print(ranked)
     return SearchResponse(
         results=[
             Document(id=1, title="Document 1", content="Content 1"),
