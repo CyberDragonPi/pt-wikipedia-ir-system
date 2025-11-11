@@ -10,14 +10,16 @@ class SearchEngine:
     def __init__(
         self,
         index_path: str = "output/final_index.jsonl",
-        documents_stats_path: str = "output/doc_stats.jsonl",
+        documents_stats_path: str = "output/documents_stats.jsonl",
         documents_metadata_path: str = "output/documents_metadata.jsonl",
-        indexer_metadata_path: str = "output/metadata.jsonl",
+        indexer_metadata_path: str = "output/indexer_metadata.jsonl",
+        offset_index_path: str = "output/offset_index.json",
     ):
         self.index_path = index_path
         self.documents_stats_path = documents_stats_path
         self.documents_metadata_path = documents_metadata_path
         self.indexer_metadata_path = indexer_metadata_path
+        self.offset_index_path = offset_index_path
         self.index = defaultdict(list)
         self.documents_lengths = {}
         self.document_count = 0
@@ -25,10 +27,10 @@ class SearchEngine:
         self.total_tokens = 0
         self.tokenizer_metadata = {}
 
-        # self.load_index()
         self.load_documents_stats()
         self.load_documents_metadata()
         self.load_indexer_metadata()
+        self.load_offset_index()
 
         self.tokenizer = Tokenizer(**self.tokenizer_metadata)
 
@@ -71,19 +73,30 @@ class SearchEngine:
             }
 
         self.tokenizer_metadata = tokenizer_metadata
-
-    # reading postings for a given term from the index file
+        
+    def load_offset_index(self):
+        self.offsets = {}
+        with open(self.offset_index_path, encoding="utf-8") as f:
+            self.offsets = json.load(f)
+        
+        print("\nLoaded offsets !! :)\n")
+        
+    
     def get_term_postings(self, term: str):
-        print(f"Loading postings for term {term} from {self.index_path}...")
-        with open(self.index_path, encoding="utf-8") as f:
-            for line in f:
-                if not line.strip():
-                    continue
-                data = json.loads(line)
-                t, postings = next(iter(data.items()))
-                if term == t:
-                    return postings
+        pos = self.offsets[term]
+
+        if pos is None:
+            print(f"No postings for term: {term}")
             return []
+
+        # 2. Skoči na offset u final_index.jsonl i učitaj postings
+        with open(self.index_path, "rb") as f:
+            f.seek(pos)
+            line = f.readline().decode("utf-8")
+            data = json.loads(line)
+            postings = next(iter(data.values()))
+            return postings
+        
         
     def check_database(database_path="output/forward_index.db"):
         if not os.path.exists(database_path):
@@ -128,7 +141,7 @@ class SearchEngine:
         # get row with given doc_id
         cursor.execute(f"SELECT title, text FROM documents WHERE doc_id = {doc_id}")
         result = cursor.fetchone()
-        print(result)
+        #print(result)
         
         conn.close()
         
@@ -138,7 +151,6 @@ class SearchEngine:
         else:
             return None
         
-    
     
     def search_tokenized(self, tokens: list[str], top_k: int = 10, k: float = 1.2, b: float = 0.75):
         scores = {}  # bm25 score for each doc_id is stored here
@@ -201,16 +213,16 @@ class SearchEngine:
                     break
         return tf_idf_weights
 
-    def search_similar(self, doc_id: int):
+    def search_similar(self, doc_id: int, num_results: int):
+        print("     now im searching for similar documents ....")
         tf_idf_weigths = self.calculate_tf_idf(doc_id)
-        top_k = 10 # how many most important words do we want to take into consideration while searching for similar documents
-        top_terms = sorted(tf_idf_weigths.items(), key=lambda x: x[1], reverse=True)[:top_k]
-        terms = [term for term, score in top_terms]
         
-        print("THE MOST IMPORTANT TERMS IN A DOCUMENT: ")
+        top_terms = sorted(tf_idf_weigths.items(), key=lambda x: x[1], reverse=True)[:10]
+        terms = [term for term, score in top_terms] 
+        
+        print("\nTHE MOST IMPORTANT TERMS IN A DOCUMENT: ")
         for t in terms:
             print(f"-- {t}")
         
-        n = 5 # how many similar documents do we want
-        return self.search_tokenized(terms, top_k=n)
+        return self.search_tokenized(terms, top_k=num_results+1)[1:]
         
