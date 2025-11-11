@@ -120,7 +120,8 @@ class Indexer:
         self.finalize()
         del dataset
         gc.collect()
-        self.merge_blocks()
+        self._merge_blocks()
+        self._create_offset_index()
 
 
     def create_forward_index(self, ):
@@ -270,7 +271,7 @@ class Indexer:
         print(f"Memory after clearing: {process.memory_info().rss / 1024**2:.2f} MB")
     
 
-    def merge_blocks(self):
+    def _merge_blocks(self):
         self._clear_memory_before_merge()
         """Merge all intermediate .jsonl blocks into a single final index"""
         block_files = sorted(
@@ -342,6 +343,32 @@ class Indexer:
         os.rename(temp_index_path, final_index_path)
         print(f"Merged {len(block_files)} blocks, {term_count} terms written to {final_index_path}")
         self._delete_temporary_blocks()
+
+
+    def _create_offset_index(self):
+        final_index_path = os.path.join(self.output_directory, "final_index.jsonl")
+        offset_index_path = os.path.join(self.output_directory, "offset_index.jsonl")
+
+        offsets = {}
+        with open(final_index_path, "rb") as f: 
+            while True:
+                pos = f.tell()
+                line = f.readline()
+                if not line:
+                    break
+                if not line.strip():
+                    continue
+                try:
+                    term = next(iter(json.loads(line).keys()))
+                    offsets[term] = pos
+                except Exception as e:
+                    print(f"Failed to read line at {pos}: {e}")
+                    continue
+
+        with open(offset_index_path, "w", encoding="utf-8") as out:
+            json.dump(offsets, out, indent=2, ensure_ascii=False)
+
+        print(f"Offset index built: {len(offsets)} terms -> {offset_index_path}")
 
 
     @staticmethod
