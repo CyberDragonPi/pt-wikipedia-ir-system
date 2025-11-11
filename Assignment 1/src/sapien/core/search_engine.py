@@ -137,13 +137,12 @@ class SearchEngine:
             return {"doc_id": doc_id, "title": title, "text": text}
         else:
             return None
-
-    def search(self, query: str, top_k: int = 10, k: float = 1.2, b: float = 0.75) -> list[dict]:
-        print(f"this is query before tokenization: {query}")
-        tokens = self.tokenizer.tokenize(query)
-        print(f"tokens: {tokens}")
-
+        
+    
+    
+    def search_tokenized(self, tokens: list[str], top_k: int = 10, k: float = 1.2, b: float = 0.75):
         scores = {}  # bm25 score for each doc_id is stored here
+    
         for token in tokens:
             postings = self.get_term_postings(token)
             if not postings:
@@ -162,7 +161,7 @@ class SearchEngine:
                     / (tf + k * ((1 - b) + b * (doc_len / self.average_document_length)))
                 )
                 scores[doc_id] = scores.get(doc_id, 0) + score
-
+                
         ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         ranked_documents = []
         for doc_id, score in ranked[:top_k]:
@@ -171,6 +170,47 @@ class SearchEngine:
             ranked_documents.append(document)
             
         return ranked_documents
+                
+        
 
-    def search_similar(self, document_id: int):
-        pass
+    def search(self, query: str, top_k: int = 10, k: float = 1.2, b: float = 0.75) -> list[dict]:
+        print(f"this is query before tokenization: {query}")
+        tokens = self.tokenizer.tokenize(query)
+        print(f"tokens: {tokens}")
+            
+        return self.search_tokenized(tokens, top_k, k, b)
+    
+    # calculate tf-idf weight for each token in a document/query
+    # to find most important tokens in a document
+    def calculate_tf_idf(self, doc_id: int):
+        document = SearchEngine.get_document_by_id(doc_id)
+        doc_tokenized = set(self.tokenizer.tokenize(document["text"]))
+        
+        tf_idf_weights = {}
+        for term in doc_tokenized:
+            postings = self.get_term_postings(term)
+            if not postings:
+                continue
+            
+            df = len(postings)
+            idf = math.log(self.document_count / df)
+            
+            for doc, tf in postings:
+                if doc == doc_id:
+                    tf_idf_weights[term] = (1 + math.log(tf)) * idf
+                    break
+        return tf_idf_weights
+
+    def search_similar(self, doc_id: int):
+        tf_idf_weigths = self.calculate_tf_idf(doc_id)
+        top_k = 10 # how many most important words do we want to take into consideration while searching for similar documents
+        top_terms = sorted(tf_idf_weigths.items(), key=lambda x: x[1], reverse=True)[:top_k]
+        terms = [term for term, score in top_terms]
+        
+        print("THE MOST IMPORTANT TERMS IN A DOCUMENT: ")
+        for t in terms:
+            print(f"-- {t}")
+        
+        n = 5 # how many similar documents do we want
+        return self.search_tokenized(terms, top_k=n)
+        
