@@ -1,8 +1,10 @@
 import json
 import math
 import os
-from collections import defaultdict
 import sqlite3
+
+from collections import defaultdict
+from time import time
 from sapien.core.tokenizer import Tokenizer
 
 
@@ -45,19 +47,30 @@ class SearchEngine:
                 self.index[term] = postings
 
     def load_documents_stats(self):
+        start_time: float = time()
         with open(self.documents_stats_path, encoding="utf-8") as f:
             for line in f:
                 data = json.loads(line)
                 self.documents_lengths[data["doc_id"]] = data["length"]
 
+        end_time: float = time()
+
+        print(f"Loaded file with documents stats in {end_time - start_time} seconds.")
+
+
     def load_documents_metadata(self):
+        start_time: float = time()
         with open(self.documents_metadata_path, encoding="utf-8") as f:
             data = json.load(f)
             self.document_count = data.get("doc_count", 0)
             self.average_document_length = data.get("avg_doc_length", 0)
             self.total_tokens = data.get("total_tokens", 0)
 
+        end_time: float = time()
+        print(f"Loaded file with documents metadata in {end_time - start_time} seconds.")
+
     def load_indexer_metadata(self):
+        start_time: float = time()
         with open(self.indexer_metadata_path, encoding="utf-8") as f:
             metadata = json.load(f)
 
@@ -73,13 +86,17 @@ class SearchEngine:
             }
 
         self.tokenizer_metadata = tokenizer_metadata
+        end_time: float = time()
+        print(f"Loaded file with indexer metadata in {end_time - start_time} seconds.")
         
     def load_offset_index(self):
+        start_time: float = time()
         self.offsets = {}
         with open(self.offset_index_path, encoding="utf-8") as f:
             self.offsets = json.load(f)
         
-        print("\nLoaded offsets !! :)\n")
+        end_time: float = time()
+        print(f"Loaded file with index offset in {end_time - start_time} seconds.")
         
     
     def get_term_postings(self, term: str):

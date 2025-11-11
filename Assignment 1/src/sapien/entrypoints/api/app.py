@@ -7,6 +7,8 @@ from fastapi.staticfiles import StaticFiles
 from sapien.entrypoints.api.routes.healthcheck import router as healthcheck_router
 from sapien.entrypoints.api.routes.search import router as search_router
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title="My Search Engine", swagger_ui_parameters={"operationsSorter": "alpha"}, prefix="/api/v1"
 )
@@ -36,3 +38,12 @@ async def serve_index():
 # Mount static files
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:5500"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+

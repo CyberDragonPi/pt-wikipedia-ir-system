@@ -347,7 +347,7 @@ class Indexer:
 
     def _create_offset_index(self):
         final_index_path = os.path.join(self.output_directory, "final_index.jsonl")
-        offset_index_path = os.path.join(self.output_directory, "offset_index.jsonl")
+        offset_index_path = os.path.join(self.output_directory, "offset_index.json")
 
         offsets = {}
         with open(final_index_path, "rb") as f: 
