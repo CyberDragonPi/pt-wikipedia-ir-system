@@ -51,6 +51,19 @@ In order to build the functional search engine, several .json or .jsonl files we
     - merging SPIMI blocks - in this phase SPIMI blocks sorted alphabetically were merged into one final index, which was in the end flushed to the disk. After the merging was done, additionaly all temporary blocks are deleted from the disk.
 ```
 
+"forward_index.db" was stored by using the sqlite3 library, as a normal database. Each rows contains given document_id, title and text columns. Like inverted index, it is created in batches (but this time with batch size set to 1000), to satisfy memory requirements. It is used to fetch document content when searching and giving text to the user.  
+"indexer_metadata.jsonl" contains all the data about the indexer (all of its parameters). Therefore, it contains all the data passed to the tokenizer used by the indexer, as well as some aditional data:
+```
+    - file_path (path to the file that should be indexed)
+    - min_term_frequency (minimum number that the term should appear to be stored in the inverted index)
+    - output directory (path to directory where all .json and .db files are store)
+    - format of the inverted index
+```
+
+Default value of the min_term_frequency is set to 5.  
+
+"offset_index.json" this file contains another list of pairs term: offset_in_final_index.jsonl. In other words, for given term, it says WHAT is the offset from the start of the final_index.jsonl to the postings list of the term that is the key value. It was created because originally, searching for the postings list by simply using final_index[term] or final_index.get(term) was simply too slow and resulted in search queries of a minute. The main reason for that was the sheer volume of the inverted index file (more than 2.5GB). Offset index has a much smaller size of around 13MB, therefore making the searching much faster.
+
 ### Searcher
 
 Searcher is used to process the user query -> to retrieve relevant documents from the inverted index (SearchEngine class takes an index path as parameter for initialization) and to rank documents using bm25 score. To ensure efficiency and stay within the memory limits, we decided not to load the entire index into memory, but instead use the offset index (offset_index.json) to locate terms dynamically when needed. The offset_index.json file stores the byte offset of each term inside final_index.jsonl. When a query term appears, the searcher looks up its offset, seeks directly to that position in the final_index.jsonl file, and retrieves the corresponding posting list without loading everything into memory.
@@ -64,22 +77,3 @@ For the Search Similar option, the selected document itself is used as the basis
 Since directly using the entire document would result in an overly long and inefficient query, we first calculate the tf-idf score for every term within the document.
 The top terms with the highest tf-idf scores are then selected to represent the document’s most significant keywords, and these terms are used as a query.
 After that, the BM25-based search is performed as in the standard case.
-
-### Searcher
-
-Searcher is used to process the user query -> to retrieve relevant documents from the inverted index (SearchEngine class takes an index path as parameter for initialization) and to rank documents using bm25 score. To ensure efficiency and stay within the memory limits, we decided not to load the entire index into memory, but instead use the offset index (offset_index.json) to locate terms dynamically when needed. The offset_index.json file stores the byte offset of each term inside final_index.jsonl. When a query term appears, the searcher looks up its offset, seeks directly to that position in the final_index.jsonl file, and retrieves the corresponding posting list without loading everything into memory.
-
-Queries are processed using the same Tokenizer that was used during indexing.
-The tokenization parameters are stored in indexer_metadata.jsonl, allowing the searcher to apply identical preprocessing steps when tokenizing user queries.
-After tokenization, for each query term, the corresponding offset is retrieved from offset_index.json, and the posting list is read from final_index.jsonl.
-Once all relevant postings are collected, documents are ranked using the BM25 score and sorted accordingly. 
-
-For the Search Similar option, the selected document itself is used as the basis for the query.
-Since directly using the entire document would result in an overly long and inefficient query, we first calculate the tf-idf score for every term within the document.
-The top terms with the highest tf-idf scores are then selected to represent the document’s most significant keywords, and these terms are used as a query.
-After that, the BM25-based search is performed as in the standard case.
-
-
-
-
-
