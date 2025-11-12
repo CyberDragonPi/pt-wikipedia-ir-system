@@ -31,6 +31,22 @@ Default settings that we have chosen for our tokenizer were following:
     - stopwords False
 ```
 
+### Indexer
+
+In order to build the functional search engine, several .json or .jsonl files were neccessary to produce during the indexing proces
+```
+    - documents_metadata.jsonl
+    - documents_stats.jsonl
+    - final_index.jsonl
+    - forward_index.db
+    - indexer_metadata.jsonl
+    - offset_index.json
+```
+
+"documents_metadata.jsonl" contains global metadata of the processed text documents, doc_count, total_tokens, avg_doc_length.  
+"documents_stats.jsonl" stores pairs of values in the key:value format, where key is the document_id (doc_id), while value is the length of the corresponding document.  
+
+
 
 
 
