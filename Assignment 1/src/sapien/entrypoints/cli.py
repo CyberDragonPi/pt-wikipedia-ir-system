@@ -1,9 +1,6 @@
 import argparse
 import logging
-import gc
-import pyarrow.dataset as ds
 
-from time import time
 from sapien.core.indexer import Indexer
 from sapien.core.limit_memory import start_memory_monitor
 from sapien.core.logging import setup_logging
@@ -13,6 +10,9 @@ start_memory_monitor(show_memory_updates=True)
 
 
 
+'''
+    Function that defines all arguments and sets their default values.
+'''
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Sapien Indexer CLI")
 
@@ -117,9 +117,6 @@ def main():
     arguments = parse_arguments()
     indexer = Indexer(**arguments)
     indexer.store_metadata()
-
-    #spimi_merger = SpimiMerger(indexer.block_paths_file)
-    #spimi_merger.merge_spimi_blocks()
 
     indexer.create_inverted_index()
     indexer.create_forward_index()

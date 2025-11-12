@@ -7,6 +7,11 @@ from nltk.stem.snowball import SnowballStemmer
 
 
 class Tokenizer:
+    '''
+        Class that handles all stuff regarding the tokenization of the text.
+        _url_regex - pre-compiled regex for finding URLs in the given text.
+        _email_regex - pre-compiled regex for finding emails in the given text. Pre-compilation should work faster than compilation in-place for each text.
+    '''
     _url_regex = re.compile(r"https?://\S+|www\.\S+", flags=re.UNICODE)
     _email_regex = re.compile(r"\S+@\S+", flags=re.UNICODE)
 
@@ -36,7 +41,7 @@ class Tokenizer:
         # defining stemmer
         if self.stemmer:
             self.stemmer_pt = SnowballStemmer("portuguese")
-            @lru_cache(maxsize=100000)
+            @lru_cache(maxsize=100000) #using cache significantly reduced text-processing time, from 1hr 10 min to 45min, since it stores most recent words
             def cached_stem(word: str) -> str:
                 return self.stemmer_pt.stem(word)
 
@@ -65,6 +70,11 @@ class Tokenizer:
         return configuration
 
     def tokenize(self, text: str) -> list[str]:
+        '''
+            Method that tokenizes the given text.
+            input: text as string
+            output: list of strings(tokens)
+        '''
         # lowercase
         if self.lowercase:
             text = text.lower()

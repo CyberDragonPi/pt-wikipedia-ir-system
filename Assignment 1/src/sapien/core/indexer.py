@@ -29,25 +29,25 @@ class Indexer:
         stemmer: bool | int = False,
         stopwords: bool | int = False,
     ):
-        # najjednostavnije je napraviti logger tako da se samo svakom objektu da njegov vlastiti
-        # --- parametri samog indexera---
-        self.file_path = file_path
-        self.min_term_freq = min_term_freq
-        self.output_directory = output_directory
-        self.inverted_format = "json"
+        
+        # --- indexer parameters ---
+        self.file_path: str = file_path
+        self.min_term_freq: int = min_term_freq
+        self.output_directory: str = output_directory
+        self.inverted_format: str = "json"
         os.makedirs(self.output_directory, exist_ok=True)
-        self.inverted_index = defaultdict(list)
-        self.block_count = 0
-        self.token_count = 0
-        self.token_threshold = 5000000  
-        self.total_tokens = 0
+        self.inverted_index: dict[str, list[tuple[int, int]]] = defaultdict(list)
+        self.block_count: int = 0
+        self.token_count: int = 0
+        self.token_threshold: int = 5000000  
+        self.total_tokens: int = 0
 
-        self.doc_lengths = {}
-        self.doc_count = 0
-        self.documents_stats_path = os.path.join(self.output_directory, "documents_stats.jsonl")
-        self.database_path = "output\\forward_index.db"
+        self.doc_lengths: dict[int, int] = {}
+        self.doc_count: int = 0
+        self.documents_stats_path: str = os.path.join(self.output_directory, "documents_stats.jsonl")
+        self.database_path: str = "output\\forward_index.db"
 
-        # --- parametri tokenizera---
+        # --- tokenizer parameters ---
         tokenizer_params = {
             "separate_alphanumeric": separate_alphanumeric,
             "remove_numbers": remove_numbers,
@@ -58,7 +58,7 @@ class Indexer:
             "stemmer": stemmer,
             "use_stopwords": stopwords,
         }
-        self.tokenizer = Tokenizer(**tokenizer_params)
+        self.tokenizer = Tokenizer(**tokenizer_params) #tokenizer is set as "property" of indexer
         self.current_process = psutil.Process(os.getpid())
 
         self.metadata = {
@@ -77,7 +77,12 @@ class Indexer:
         }
 
 
+    
     def output_configuration(self) -> str:
+        '''
+            Method that outputs the configuration of the indexer in the string format
+            output - string
+        '''
         indexer_configs = (
             f"Configuration:\n"
             f"  · Min term frequency: {self.min_term_freq}\n"
@@ -89,43 +94,57 @@ class Indexer:
 
 
     def store_metadata(self):
+        '''
+            Method that stores all indexer metadata in .jsonl file.
+        '''
         path = os.path.join(self.output_directory, "indexer_metadata.jsonl")
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.metadata, f, indent=4, ensure_ascii=False)
 
 
     def create_inverted_index(self):
-        dataset = self.load_dataset()
+        '''
+            Method that loads the given dataset and creates corresponding inverted index, storing it on the disk
+            Batch size is set to 750, since 1000 causes memory crashes, > 2000MB
+            Inverted index is store in form term: postings, where each posting is (document_id, freqeuncy)
+        '''
+        dataset: ds.FileSystemDataset = self._load_dataset()
 
-        document_id = 0
-        skipped = 0
+        document_id: int = 0
+        skipped_documents: int = 0
         for i, batch in enumerate(dataset.to_batches(batch_size=750)):
-            batch_start_time = time()
-            text_col = batch.column("text")
+            batch_start_time: float = time()
+            text_col = batch.column("text") # type: ignore
 
             print(f"\nProcessing batch {i + 1} with {batch.num_rows} rows")
-            for j, value in enumerate(text_col):
-                text = value.as_py()
+            for j, value in enumerate(text_col): # type: ignore
+                text: str = value.as_py() # type: ignore
                 document_id += 1
-                if not text or not text.strip():
-                    skipped += 1
+                if not text or not text.strip(): # type: ignore
+                    skipped_documents += 1
                     continue
 
-                tokens = self.tokenizer.tokenize(text)
-                self.add_document(document_id, tokens)
+                tokens = self.tokenizer.tokenize(text) # type: ignore
+                self._add_document(document_id, tokens)
 
-            batch_end_time = time()
+            batch_end_time: float = time()
             print(f"Batch {i + 1} processed in {batch_end_time - batch_start_time:.2f} seconds")
 
-        self.finalize()
-        del dataset
-        gc.collect()
-        self._merge_blocks()
-        self._create_offset_index()
+        self._finalize() #store the final block
+        del dataset # clear the memory
+        gc.collect() 
+        self._merge_blocks() # merge blocks 
+        self._create_offset_index() # create "offset index"
 
 
-    def create_forward_index(self, ):
-        dataset = self.load_dataset()
+    def create_forward_index(self):
+        '''
+            Method for creating and storing on disk the forward index. Unlike the inverted index,
+            forward index is stored as database.
+            Each row is (document_id, title, text)
+            Since here less memory is used, batch size can be set to 1000 (maximum value), without crashing.
+        '''
+        dataset = self._load_dataset()
 
         conn = sqlite3.connect(self.database_path)
         cursor = conn.cursor()
@@ -139,24 +158,24 @@ class Indexer:
         """)
         conn.commit()
 
-        document_id = 0
-        skipped = 0
+        document_id: int = 0
+        skipped_documents: int = 0
 
         for i, batch in enumerate(dataset.to_batches(batch_size=1000)):
             batch_start_time = time()
 
-            title_column = batch.column("title")
-            text_column = batch.column("text")
+            title_column = batch.column("title") # type: ignore
+            text_column = batch.column("text") # type: ignore
 
             print(f"\nProcessing batch {i + 1} with {batch.num_rows} rows")
 
             for j in range(batch.num_rows):
-                title = title_column[j].as_py()
-                text = text_column[j].as_py()
+                title: str = title_column[j].as_py() # type: ignore
+                text: str = text_column[j].as_py() # type: ignore
                 document_id += 1
 
                 if not text or not text.strip():
-                    skipped += 1
+                    skipped_documents += 1
                     continue
 
                 cursor.execute(
@@ -166,50 +185,60 @@ class Indexer:
 
             conn.commit()
 
-            batch_end_time = time()
+            batch_end_time: float = time()
             print(f"Batch {i + 1} processed in {batch_end_time - batch_start_time:.2f} seconds")
 
-        conn.close()
+        conn.close() # disconnect from the database 
 
-        del dataset, title_column, text_column, title, text
+        del dataset, title_column, text_column, title, text # clear the memory
         gc.collect()
-        print(f"Forward index created. Total documents: {document_id}, skipped: {skipped}")
+        print(f"Forward index created. Total documents: {document_id}, skipped: {skipped_documents}")
 
 
-    def load_dataset(self) -> ds.FileSystemDataset:
+    def _load_dataset(self) -> ds.FileSystemDataset:
+        '''
+            Private method that loads the dataset from the given path.
+            output: dataset to parse
+        '''
         return ds.dataset(self.file_path, format="arrow")
 
 
-    def add_document(self, doc_id: int, tokens: list[str]):
-        """Add one documents tokens to the in-memory index"""
-        term_freq = defaultdict(int)
-        valid_tokens = 0
+    def _add_document(self, doc_id: int, tokens: list[str]):
+        '''
+            For the given document, count each term's frequency and add it to inverted index (current SPIMI block)
+            input: doc_id -> currently parsed document's id
+                   tokens -> list of tokens for the current document
+        '''
+        term_freq: dict[str, int] = defaultdict(int)
+        valid_tokens: int = 0
 
-        for term in tokens:
+        for term in tokens: # pass all tokens and store their frequency
             term_freq[term] += 1
             valid_tokens += 1
             self.total_tokens += 1
 
-        self.doc_lengths[doc_id] = valid_tokens
+        self.doc_lengths[doc_id] = valid_tokens # store document length to disk
         self.doc_count += 1
         with open(self.documents_stats_path, "a", encoding="utf-8") as stats_file:
             stats_file.write(json.dumps({"doc_id": doc_id, "length": valid_tokens}) + "\n")
 
-        for term, freq in term_freq.items():
+        for term, freq in term_freq.items(): # add postings to current inverted index block
             self.inverted_index[term].append((doc_id, freq))
             self.token_count += 1
 
         process = psutil.Process()
-        memory_limit = 2 * 1024 * 1024 * 1024
+        memory_limit: int = 2 * 1024 * 1024 * 1024
         mem_usage = process.memory_info().rss
 
-        if self.token_count >= self.token_threshold or mem_usage > memory_limit * 0.8:
+        if self.token_count >= self.token_threshold or mem_usage > memory_limit * 0.8: #if token threshold is passed, or memory limit, store index to disk
             self._write_block()
             self.token_count = 0
 
 
     def _write_block(self):
-        """Writes one sorted block to a .jsonl file (one term per line)"""
+        '''
+            Write the current index block to the disk in .jsonl format
+        '''
         self.block_count += 1
         block_path = os.path.join(self.output_directory, f"block_{self.block_count}.jsonl")
         sorted_index = dict(sorted(self.inverted_index.items()))
@@ -222,19 +251,20 @@ class Indexer:
             f"SPIMI wrote block {self.block_count} "
             f"with {len(self.inverted_index)} terms, {block_path}"
         )
-        del sorted_index
+        del sorted_index # clear the memory for additional space before continuing indexing
         self.inverted_index.clear()
         gc.collect()
         self.token_count = 0
 
 
-    def finalize(self):
-        """Flush any remaining in-memory index to disk"""
+    def _finalize(self):
+        '''
+            Private method for storing the last index block to the disk, if it is not empty
+        '''
         if self.inverted_index:
             self._write_block()
 
-        print("SPIMI indexing complete")
-
+        print("All SPIMI blocks stored to the disk.")
         avg_doc_length = self.total_tokens / self.doc_count if self.doc_count > 0 else 0
 
         metadata = {
@@ -243,15 +273,17 @@ class Indexer:
             "avg_doc_length": avg_doc_length
         }
 
-        meta_path = os.path.join(self.output_directory, "documents_metadata.jsonl")
+        meta_path = os.path.join(self.output_directory, "documents_metadata.jsonl") # storing documents metadata to the disk in jsonl format
         with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=4)
 
         print(f"Documents Metadata saved to {meta_path}")
-        print(f"Documents stats written to {self.documents_stats_path}")
 
 
     def _clear_memory_before_merge(self):
+        '''
+            Private method that clears all possible memory before merging the blocks (final phase of SPIMI indexing)
+        '''
         if hasattr(self, "inverted_index"):
             self.inverted_index.clear()
             del self.inverted_index
@@ -272,15 +304,18 @@ class Indexer:
     
 
     def _merge_blocks(self):
-        self._clear_memory_before_merge()
-        """Merge all intermediate .jsonl blocks into a single final index"""
-        block_files = sorted(
+        '''
+            Private method that merges all SPIMI blocks into one final inverted index and stores it on disk
+        '''
+        self._clear_memory_before_merge() # first we clear the memory from creating blocks
+        
+        block_files = sorted( # fetch all needed blocks, without metadata files
             f
             for f in glob.glob(os.path.join(self.output_directory, "*.jsonl"))
             if not f.endswith(("final_index.jsonl", "documents_stats.jsonl", "metadata.jsonl", "documents_metadata.jsonl"))
         )
 
-        if not block_files:
+        if not block_files: # no blocks to merge, should never happen
             print("No blocks to merge")
             return
 
@@ -345,7 +380,28 @@ class Indexer:
         self._delete_temporary_blocks()
 
 
+    def _delete_temporary_blocks(self):
+        '''
+            Private methods that, after merging all the blocks, deletes all temporary blocks.
+        '''
+        pattern = os.path.join(self.output_directory, "block_*.jsonl")
+        files_to_delete = glob.glob(pattern)
+
+        for f in files_to_delete:
+            try:
+                os.remove(f)
+            except Exception as e:
+                print(f"Failed to delete {f}: {e}")
+
+        print(f"Deleted {len(files_to_delete)} temporary blocks.")
+
+
     def _create_offset_index(self):
+        '''
+            Private method that creates offset index, in order to fetch postings list much faster for the given term.
+            Each member is term: offset, where "offset" is the number of bytes from start of final_index.json where
+            postings for the given terms are located. Works much faster than simples search by key. 
+        '''
         final_index_path = os.path.join(self.output_directory, "final_index.jsonl")
         offset_index_path = os.path.join(self.output_directory, "offset_index.json")
 
@@ -372,9 +428,11 @@ class Indexer:
 
 
     @staticmethod
-    def _merge_postings(postings):
-        """Combine duplicate (docID, freq) pairs, summing frequencies per docID"""
-        merged = defaultdict(int)
+    def _merge_postings(postings: tuple[int, int]) -> list[tuple[int, int]]:
+        '''
+            Combines duplicate (doc_id, frequency) postings into a single posting for given doc_id
+        '''
+        merged: dict[int, int] = defaultdict(int)
         for doc_id, freq in postings:
             merged[doc_id] += freq
         return sorted(merged.items())
@@ -382,7 +440,9 @@ class Indexer:
 
     @staticmethod
     def _line_iterator(file_handle):
-        """Generator that yields (term, postings) pairs from a .jsonl block"""
+        '''
+            generator that yields (term, postings) from the .jsonl blocks.
+        '''
         for line in file_handle:
             if not line.strip():
                 continue
@@ -390,15 +450,3 @@ class Indexer:
             term, postings = next(iter(data.items()))
             yield term, postings
 
-
-    def _delete_temporary_blocks(self):
-        pattern = os.path.join(self.output_directory, "block_*.jsonl")
-        files_to_delete = glob.glob(pattern)
-
-        for f in files_to_delete:
-            try:
-                os.remove(f)
-            except Exception as e:
-                print(f"Failed to delete {f}: {e}")
-
-        print(f"Deleted {len(files_to_delete)} temporary blocks.")
