@@ -45,7 +45,7 @@ In order to build the functional search engine, several .json or .jsonl files we
 
 "documents_metadata.jsonl" contains global metadata of the processed text documents, doc_count, total_tokens, avg_doc_length.  
 "documents_stats.jsonl" stores pairs of values in the key:value format, where key is the document_id (doc_id), while value is the length of the corresponding document.  
-
+"final_index.jsonl" stores our inverted index, in the format term: postings_list, where postings_list is the tuple of (doc_id, freq). In order to satisfy the given memory condition, we had to stream our dataset in batches, with batch size set to 750 (out of maximum value of 1000). This allowed us to keep the memory around 1400MB, low enough for the given constraint of 2GB.
 
 
 
