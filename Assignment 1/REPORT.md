@@ -65,6 +65,20 @@ Since directly using the entire document would result in an overly long and inef
 The top terms with the highest tf-idf scores are then selected to represent the document’s most significant keywords, and these terms are used as a query.
 After that, the BM25-based search is performed as in the standard case.
 
+### Searcher
+
+Searcher is used to process the user query -> to retrieve relevant documents from the inverted index (SearchEngine class takes an index path as parameter for initialization) and to rank documents using bm25 score. To ensure efficiency and stay within the memory limits, we decided not to load the entire index into memory, but instead use the offset index (offset_index.json) to locate terms dynamically when needed. The offset_index.json file stores the byte offset of each term inside final_index.jsonl. When a query term appears, the searcher looks up its offset, seeks directly to that position in the final_index.jsonl file, and retrieves the corresponding posting list without loading everything into memory.
+
+Queries are processed using the same Tokenizer that was used during indexing.
+The tokenization parameters are stored in indexer_metadata.jsonl, allowing the searcher to apply identical preprocessing steps when tokenizing user queries.
+After tokenization, for each query term, the corresponding offset is retrieved from offset_index.json, and the posting list is read from final_index.jsonl.
+Once all relevant postings are collected, documents are ranked using the BM25 score and sorted accordingly. 
+
+For the Search Similar option, the selected document itself is used as the basis for the query.
+Since directly using the entire document would result in an overly long and inefficient query, we first calculate the tf-idf score for every term within the document.
+The top terms with the highest tf-idf scores are then selected to represent the document’s most significant keywords, and these terms are used as a query.
+After that, the BM25-based search is performed as in the standard case.
+
 
 
 
