@@ -100,7 +100,7 @@ class SearchEngine:
         
     
     def get_term_postings(self, term: str):
-        pos = self.offsets[term]
+        pos = self.offsets.get(term, None)
 
         if pos is None:
             print(f"No postings for term: {term}")
@@ -115,7 +115,7 @@ class SearchEngine:
             return postings
         
         
-    def check_database(database_path="output/forward_index.db"):
+    def check_database(self, database_path="output/forward_index.db"):
         if not os.path.exists(database_path):
             print(f"Database file not found at {database_path}")
             return False
@@ -143,6 +143,7 @@ class SearchEngine:
         
         return True
     
+
     def get_document_by_id(doc_id: int, database_path="output/forward_index.db"):
         if not os.path.exists(database_path):
             print(f"Database file not found at {database_path}")
@@ -167,6 +168,31 @@ class SearchEngine:
             return {"doc_id": doc_id, "title": title, "text": text}
         else:
             return None
+    
+
+    def get_documents_by_ids(doc_ids, database_path="output/forward_index.db"):
+        if not os.path.exists(database_path):
+            print(f"Database file not found at {database_path}")
+            return []
+
+        if not doc_ids:
+            return []
+
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+
+        placeholders = ','.join(['?'] * len(doc_ids))
+        query = f"SELECT doc_id, title, text FROM documents WHERE doc_id IN ({placeholders})"
+        cursor.execute(query, doc_ids)
+
+        results = cursor.fetchall()
+        conn.close()
+
+        documents = [
+            {"doc_id": doc_id, "title": title, "text": text}
+            for doc_id, title, text in results
+        ]
+        return documents
         
     
     def search_tokenized(self, tokens: list[str], top_k: int = 10, k: float = 1.2, b: float = 0.75):
@@ -192,14 +218,21 @@ class SearchEngine:
                 scores[doc_id] = scores.get(doc_id, 0) + score
                 
         ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        top_docs = ranked[:top_k]
+        doc_ids = [doc_id for doc_id, _ in top_docs]
+
+        documents = SearchEngine.get_documents_by_ids(doc_ids)
+
+        doc_dict = {doc["doc_id"]: doc for doc in documents}
         ranked_documents = []
-        for doc_id, score in ranked[:top_k]:
-            document = SearchEngine.get_document_by_id(doc_id)
-            document["score"] = score
-            ranked_documents.append(document)
-            
+        for doc_id, score in top_docs:
+            if doc_id in doc_dict:
+                doc = doc_dict[doc_id]
+                doc["score"] = score
+                ranked_documents.append(doc)
+
         return ranked_documents
-                
+                    
         
 
     def search(self, query: str, top_k: int = 10, k: float = 1.2, b: float = 0.75) -> list[dict]:
