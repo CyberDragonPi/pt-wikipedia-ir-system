@@ -9,10 +9,11 @@ setup_logging(logging.INFO)
 start_memory_monitor(show_memory_updates=True)
 
 
-
-'''
+"""
     Function that defines all arguments and sets their default values.
-'''
+"""
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Sapien Indexer CLI")
 
@@ -112,7 +113,6 @@ def parse_arguments():
     return vars(parser.parse_args())
 
 
-
 def main():
     arguments = parse_arguments()
     indexer = Indexer(**arguments)
@@ -120,7 +120,6 @@ def main():
 
     indexer.create_inverted_index()
     indexer.create_forward_index()
-    
 
 
 if __name__ == "__main__":

@@ -1,13 +1,12 @@
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from sapien.entrypoints.api.routes.healthcheck import router as healthcheck_router
 from sapien.entrypoints.api.routes.search import router as search_router
-
-from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="My Search Engine", swagger_ui_parameters={"operationsSorter": "alpha"}, prefix="/api/v1"
@@ -46,4 +45,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
