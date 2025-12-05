@@ -10,3 +10,4 @@ class SearchRequest(BaseModel):
 
 class SearchResponse(BaseModel):
     results: list[Document]
+    answer: str | None = None

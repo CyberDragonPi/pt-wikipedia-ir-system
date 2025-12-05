@@ -6,16 +6,18 @@ from sapien.core.model import Document
 from sapien.core.search_engine import SearchEngine
 from sapien.entrypoints.api.model import SearchResponse
 from sapien.core.neural_reranker import NeuralReranker
+from sapien.core.rag_agent import RagAgent
 
 router = APIRouter(tags=["search engine"])
 _reranker = NeuralReranker()
+_searcher = SearchEngine()
+_rag_agent = RagAgent()
 
 
 @router.get("/search")
 def search(query: str, num_results: int = 10) -> SearchResponse:
     """Search for documents matching the given query."""
-    searcher = SearchEngine()
-    ranked = searcher.search(query, top_k=num_results)
+    ranked = _searcher.search(query, top_k=100)
     """for document in ranked:
         print(f"DOC_ID {document['doc_id']}")
         print(f"SCORE: {document['score']}")
@@ -23,7 +25,7 @@ def search(query: str, num_results: int = 10) -> SearchResponse:
         print(f"TEXT: {document['text']}")
         print("-" * 60)"""
         
-    reranked = _reranker.rerank(query, ranked)
+    reranked = _reranker.rerank(query, ranked, num_results)
     
     results: list[Document] = []
     for document in reranked:
@@ -33,16 +35,20 @@ def search(query: str, num_results: int = 10) -> SearchResponse:
 
         results.append(Document(id=doc_id, title=title, content=content))
 
-    return SearchResponse(results=results)
+    if _rag_agent.check_if_its_question(query) == "yes":
+        answer = _rag_agent.answer_question_with_document(query, results[0].content)
+        print(f"Answer to question: {answer}")
+    else:
+        answer = None
+
+    return SearchResponse(results=results, answer=answer)
 
 
 @router.get("/search_like")
 def search_like(doc_id: int, num_results: int = 10) -> SearchResponse:
     """Search for documents similar to the given document ID."""
-    searcher = SearchEngine()
-
     print(f"--->>> I'm searching for similar documents to {doc_id}....")
-    similar_docs = searcher.search_similar(doc_id, num_results)
+    similar_docs = _searcher.search_similar(doc_id, num_results)
     print(f"I searched for similar documents to {doc_id}....")
     print("SIMILAR DOCUMENTS: ")
     """for document in similar_docs:

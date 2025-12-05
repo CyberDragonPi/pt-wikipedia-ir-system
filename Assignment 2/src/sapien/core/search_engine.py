@@ -8,6 +8,7 @@ from time import time
 from sapien.core.tokenizer import Tokenizer
 
 
+
 class SearchEngine:
     def __init__(
         self,
@@ -29,6 +30,7 @@ class SearchEngine:
         self.total_tokens = 0
         self.tokenizer_metadata = {}
 
+        
         self.load_documents_stats()
         self.load_documents_metadata()
         self.load_indexer_metadata()
@@ -36,6 +38,7 @@ class SearchEngine:
 
         self.tokenizer = Tokenizer(**self.tokenizer_metadata)
 
+        
     def load_index(self):
         print(f"Loading index from {self.index_path}...")
         with open(self.index_path, encoding="utf-8") as f:
@@ -45,6 +48,7 @@ class SearchEngine:
                 data = json.loads(line)
                 term, postings = next(iter(data.items()))
                 self.index[term] = postings
+
 
     def load_documents_stats(self):
         start_time: float = time()
@@ -57,6 +61,7 @@ class SearchEngine:
 
         print(f"Loaded file with documents stats in {end_time - start_time} seconds.")
 
+
     def load_documents_metadata(self):
         start_time: float = time()
         with open(self.documents_metadata_path, encoding="utf-8") as f:
@@ -67,6 +72,7 @@ class SearchEngine:
 
         end_time: float = time()
         print(f"Loaded file with documents metadata in {end_time - start_time} seconds.")
+
 
     def load_indexer_metadata(self):
         start_time: float = time()
@@ -88,6 +94,7 @@ class SearchEngine:
         end_time: float = time()
         print(f"Loaded file with indexer metadata in {end_time - start_time} seconds.")
 
+
     def load_offset_index(self):
         start_time: float = time()
         self.offsets = {}
@@ -96,6 +103,7 @@ class SearchEngine:
 
         end_time: float = time()
         print(f"Loaded file with index offset in {end_time - start_time} seconds.")
+
 
     def get_term_postings(self, term: str):
         pos = self.offsets.get(term, None)
@@ -111,6 +119,7 @@ class SearchEngine:
             data = json.loads(line)
             postings = next(iter(data.values()))
             return postings
+
 
     def check_database(self, database_path="output/forward_index.db"):
         if not os.path.exists(database_path):
@@ -140,6 +149,7 @@ class SearchEngine:
 
         return True
 
+
     def get_document_by_id(doc_id: int, database_path="output/forward_index.db"):
         if not os.path.exists(database_path):
             print(f"Database file not found at {database_path}")
@@ -165,6 +175,7 @@ class SearchEngine:
         else:
             return None
 
+
     def get_documents_by_ids(doc_ids, database_path="output/forward_index.db"):
         if not os.path.exists(database_path):
             print(f"Database file not found at {database_path}")
@@ -188,7 +199,8 @@ class SearchEngine:
         ]
         return documents
 
-    def search_tokenized(self, tokens: list[str], top_k: int = 10, k: float = 1.2, b: float = 0.75):
+
+    def search_tokenized(self, tokens: list[str], top_k: int = 100, k: float = 1.2, b: float = 0.75):
         scores = {}  # bm25 score for each doc_id is stored here
 
         for token in tokens:
@@ -226,12 +238,14 @@ class SearchEngine:
 
         return ranked_documents
 
-    def search(self, query: str, top_k: int = 10, k: float = 1.2, b: float = 0.75) -> list[dict]:
+
+    def search(self, query: str, top_k: int = 100, k: float = 1.2, b: float = 0.75) -> list[dict]:
         print(f"this is query before tokenization: {query}")
         tokens = self.tokenizer.tokenize(query)
         print(f"tokens: {tokens}")
-
+            
         return self.search_tokenized(tokens, top_k, k, b)
+
 
     # calculate tf-idf weight for each token in a document/query
     # to find most important tokens in a document
@@ -253,6 +267,7 @@ class SearchEngine:
                     tf_idf_weights[term] = (1 + math.log(tf)) * idf
                     break
         return tf_idf_weights
+
 
     def search_similar(self, doc_id: int, num_results: int):
         print("     now im searching for similar documents ....")
