@@ -3,10 +3,10 @@
 from fastapi import APIRouter
 
 from sapien.core.model import Document
-from sapien.core.search_engine import SearchEngine
-from sapien.entrypoints.api.model import SearchResponse
 from sapien.core.neural_reranker import NeuralReranker
 from sapien.core.rag_agent import RagAgent
+from sapien.core.search_engine import SearchEngine
+from sapien.entrypoints.api.model import SearchResponse
 
 router = APIRouter(tags=["search engine"])
 _reranker = NeuralReranker()
@@ -24,14 +24,16 @@ def search(query: str, num_results: int = 10) -> SearchResponse:
         print(f"TITLE: {document['title']}")
         print(f"TEXT: {document['text']}")
         print("-" * 60)"""
-        
+
     reranked = _reranker.rerank(query, ranked, num_results)
-    
+
     results: list[Document] = []
     for document in reranked:
+        best_snippet = _reranker.get_best_snippet(query, document["text"])
+
         doc_id: int = document["doc_id"]
         title: str = document["title"]
-        content: str = document["text"]
+        content: str = best_snippet
 
         results.append(Document(id=doc_id, title=title, content=content))
 
