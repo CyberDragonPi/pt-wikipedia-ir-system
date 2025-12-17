@@ -21,7 +21,10 @@ The process of answering the question is done in 2 steps:
 2) if the query was a question, give the most relevant document to the LLM and make him try to answer the question (using only the sent document)
 
 ### Is the query a question?
-This part was solved by sending the following prompt to the LLM "Respond only with 'yes' or 'no'. Is the following sentence a question? Sentence: '{query}' (Portuguese)" whery query is a user query entered into a search engine.
+This part was solved by sending the following prompt to the LLM 
+```text
+Respond only with 'yes' or 'no'. Is the following sentence a question? Sentence: '{query}' (Portuguese)" whery query is a user query entered into a search engine.
+```
 
 ### What is the answer to question?
 If the answer we receive from the LLM is positive, we send another prompt
