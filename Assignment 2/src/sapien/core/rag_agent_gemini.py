@@ -14,7 +14,7 @@ class RagAgentGemini:
         #print(f"Groq api key: {self.groq_api_key}")
 
         self.gemini_client = genai.Client()
-        self.model = "gemini-2.0-flash-lite"
+        self.model = "gemini-2.5-flash-lite"
 
         #response = self.gemini_client.models.generate_content(
         #    model=self.model,
