@@ -17,25 +17,25 @@ Software architecture remained largely the same, the only major change for this 
 The RAG part of the project was a lot more tricky, since it included using external LLM model that was not running locally on our PC (because models are much more complex to run, even for RTX 3050). The first model that we selected was groq, sepcifically "openai/gpt-oss-20b", which worked well, but showed huge restrictions when sending the prompts (for example, the TPM limit was 8000 tokens, which is virtually unusable when the document is larger, since we would have to either truncate the document that we send or send in batches). Therefore, in the end we selected the gemini models, alternating between gemini-2.5-flash-lite and gemini-2.5-flash.
 
 The process of answering the question is done in 2 steps:
-'''
 1) send a prompt to the LLM and ask him to analyze whether the user query is a question or not
 2) if the query was a question, give the most relevant document to the LLM and make him try to answer the question (using only the sent document)
-'''
 
 ### Is the query a question?
 This part was solved by sending the following prompt to the LLM "Respond only with 'yes' or 'no'. Is the following sentence a question? Sentence: '{query}' (Portuguese)" whery query is a user query entered into a search engine.
 
 ### What is the answer to question?
-If the answer we receive from the LLM is positive, we send another prompt """
-                You are an assistant. Use only the following text to answer the question. 
-                If the answer is not in the text, respond with 'Desculpe. Eu não sei.'
+If the answer we receive from the LLM is positive, we send another prompt
 
-                Text:
-                {document}
+```text
+You are an assistant. Use only the following text to answer the question. 
+If the answer is not in the text, respond with "Desculpe. Eu não sei."
 
-                Question:
-                {question}
-                """
+Text:
+{document}
+
+Question:
+{question}
+```
 
 Therefore, we provide an LLM with only the user query and the most relevant document (after neural reranking).
 
@@ -46,12 +46,10 @@ The answer to the question is display directly below the search bar, between the
 ## Additional AI enhancments
 ### User query improvement
 Sometimes, it can happen that the user query is not completely correct, e.g. contains the grammar errors etc. In order to combat that, we once again used gemini to provide corrected query, but only as a suggestion, with user being able to then select the recommended query as his own query. Here, we do not restrict the LLM to the information it uses, we simply send him the users query with the following instructions
-'''
 1. If the query is valid and understandable, respond exactly with the original query. 
 2. If the query is unclear, incomplete, or poorly phrased, suggest a corrected and improved version of the query. 
 3. Return only the query text. 
 4. The output should be in Portuguese.
-'''
 Improved query is then sent to the frontend and displayed, if it exists, with corresponding message "Voce pensou..."
 
 The first iteration of this AI enhancement used another model run locally on our GPU https://huggingface.co/pierreguillou/gpt2-small-portuguese . The reason why it could have potentially been good was that it was trained on Portuguese wikipedia by using transfer learning, but it showed really terrible results, therefore making us abandon this experiment.
