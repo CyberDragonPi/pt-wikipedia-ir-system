@@ -7,3 +7,4 @@ class Document(BaseModel):
     id: int
     title: str
     content: str
+    best_snippet: str | None

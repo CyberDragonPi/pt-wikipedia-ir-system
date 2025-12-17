@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from groq import Groq
 
 
-class RagAgent:
+class RagAgentGroq:
     def __init__(self):
         load_dotenv()
         self.groq_api_key = os.getenv("GROQ_API_KEY")

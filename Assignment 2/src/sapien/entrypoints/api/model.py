@@ -11,3 +11,4 @@ class SearchRequest(BaseModel):
 class SearchResponse(BaseModel):
     results: list[Document]
     answer: str | None = None
+    improved_query: str | None = None

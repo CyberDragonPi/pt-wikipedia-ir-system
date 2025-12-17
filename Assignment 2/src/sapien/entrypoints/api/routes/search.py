@@ -4,14 +4,14 @@ from fastapi import APIRouter
 
 from sapien.core.model import Document
 from sapien.core.neural_reranker import NeuralReranker
-from sapien.core.rag_agent import RagAgent
+from sapien.core.rag_agent_gemini import RagAgentGemini
 from sapien.core.search_engine import SearchEngine
 from sapien.entrypoints.api.model import SearchResponse
 
 router = APIRouter(tags=["search engine"])
 _reranker = NeuralReranker()
 _searcher = SearchEngine()
-_rag_agent = RagAgent()
+_rag_agent = RagAgentGemini()
 
 
 @router.get("/search")
@@ -29,21 +29,23 @@ def search(query: str, num_results: int = 10) -> SearchResponse:
 
     results: list[Document] = []
     for document in reranked:
-        best_snippet = _reranker.get_best_snippet(query, document["text"])
+        best_snippet: str = _reranker.get_best_snippet(query, document["text"])
 
         doc_id: int = document["doc_id"]
         title: str = document["title"]
-        content: str = best_snippet
+        content: str =  document["text"]
 
-        results.append(Document(id=doc_id, title=title, content=content))
+        results.append(Document(id=doc_id, title=title, content=content, best_snippet=best_snippet))
 
-    if _rag_agent.check_if_its_question(query) == "yes":
+    if _rag_agent.check_if_its_question(query).lower() == "yes":
         answer = _rag_agent.answer_question_with_document(query, results[0].content)
         print(f"Answer to question: {answer}")
     else:
         answer = None
+    
+    improved_query: str | None = _rag_agent.improve_query_if_needed(query)
 
-    return SearchResponse(results=results, answer=answer)
+    return SearchResponse(results=results, answer=answer, improved_query=improved_query)
 
 
 @router.get("/search_like")
@@ -65,7 +67,8 @@ def search_like(doc_id: int, num_results: int = 10) -> SearchResponse:
         doc_id: int = document["doc_id"]
         title: str = document["title"]
         content: str = document["text"]
+        best_snippet: str | None = None
 
-        results.append(Document(id=doc_id, title=title, content=content))
+        results.append(Document(id=doc_id, title=title, content=content, best_snippet=best_snippet))
 
     return SearchResponse(results=results)
