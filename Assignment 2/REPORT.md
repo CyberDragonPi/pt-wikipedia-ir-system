@@ -1,79 +1,58 @@
 # PROJECT REPORT
 
-## Building inverted index
+## Neural Reranker
 
-### Tokenizer
-The first step towards building the inverted index (or indexer whose job is to produce the inverted and forward index) was to create suitable input data for the indexer. Or, to tokenize all the words to produce terms that should serve as key values in the inverted index. To achieve the most efficient text processing with the tokenizer, the following operation order was established:
-```
-    - set text to lowercase
-    - remove URLs (if set as the operation to conduct)
-    - remove emails (if set as the operation to conduct)
-    - split the text into python list of tokens list[str]
-    - separate alphanumeric tokens (if set as the operation to conduct)
-    - remove numbers (fully numeric tokens, if set as the operation to conduct)
-    - remove the tokens with the length less than threshold
-    - removing the stopwords (if set as the operation of the conflict)
-    - stemming of the words (if set as the operation to conduct)
-```
+### Getting started
+The first step towards incorporating neural reranker was selecting the appropriate model. For that, we selected mmarco-mMiniLMv2-L12-H384-v1, which in the end showed good performance during the testings. The previous function for retrieving top-k documents was not changed so that it always retrieves top 100 documents by using the BM-25 algorithm, and then uses the neural reranker to select top 10, 5, etc documents (as user selected).
 
-Additionaly, in order to reduce the time neccessary to produce the inverted index, we have decided to use pre-compiled REGEXs for the URLs and e-mails, as
-well as storing 100_000 most recent stem terms by using lru_cache. Those modifications reduced the neccessary time to produce stemmed inverted index from 60 minutes to 40 minutes.
+### GPU support
+The main problem we encountered was that the process of reranking is much more computationally expensive, and therefore takes a lot of time to rerank top 100 documents (more than 10 seconds on CPU). However, by utilizing locally available GPU, such as RTX 3050, we managed to significantly reduce running time of reranker, between 1.4 and 1.9 seconds, more than 5 times faster than running on CPU. In order to do that, we had to simply install the newest CUDA for pytorch from their official website (we used CUDA 12.6 support for torch).
 
-Default settings that we have chosen for our tokenizer were following:
-```
-    - lowercase True
-    - remove URLs True
-    - remove emails True
-    - separate alphanumeric True
-    - remove numbers True
-    - token length threshold 1
-    - stemmer True
-    - stopwords False
-```
+### Software architecture
+Software architecture remained largely the same, the only major change for this part was creating a new class NeuralReranker, with corresponding methods for object construction and reranking. Reranker is then created and used inside the python script that handles routes for searching.
 
-### Indexer
 
-In order to build the functional search engine, several .json or .jsonl files were neccessary to produce during the indexing proces
-```
-    - documents_metadata.jsonl
-    - documents_stats.jsonl
-    - final_index.jsonl
-    - forward_index.db
-    - indexer_metadata.jsonl
-    - offset_index.json
-```
 
-"documents_metadata.jsonl" contains global metadata of the processed text documents, doc_count, total_tokens, avg_doc_length.
-"documents_stats.jsonl" stores pairs of values in the key:value format, where key is the document_id (doc_id), while value is the length of the corresponding document.
-"final_index.jsonl" stores our inverted index, in the format term: postings_list, where postings_list is the tuple of (doc_id, freq). In order to satisfy the given memory condition, we had to stream our dataset in batches, with batch size set to 750 (out of maximum value of 1000). This allowed us to keep the memory around 1400MB, low enough for the given constraint of 2GB. Additionaly, inverted index was created in 2 phases.
-```
-    - creating SPIMI blocks - in this phase we stored the index in smaller batches, named block_%d, sequentially as we passed our dataset. First we tokenized each document and stored its postings, before flushing each block to the disk in the format term: postings_list, where key was the term that appeared in the document, and posting contained the pair of document id and frequency of the term in the given document. Blocks were flushed to the disk either as we reached the memory threshold (set to 1800MB) or as certain number of tokens was stored.
-    - merging SPIMI blocks - in this phase SPIMI blocks sorted alphabetically were merged into one final index, which was in the end flushed to the disk. After the merging was done, additionaly all temporary blocks are deleted from the disk.
-```
+## RAG
+The RAG part of the project was a lot more tricky, since it included using external LLM model that was not running locally on our PC (because models are much more complex to run, even for RTX 3050). The first model that we selected was groq, sepcifically "openai/gpt-oss-20b", which worked well, but showed huge restrictions when sending the prompts (for example, the TPM limit was 8000 tokens, which is virtually unusable when the document is larger, since we would have to either truncate the document that we send or send in batches). Therefore, in the end we selected the gemini models, alternating between gemini-2.5-flash-lite and gemini-2.5-flash.
 
-"forward_index.db" was stored by using the sqlite3 library, as a normal database. Each rows contains given document_id, title and text columns. Like inverted index, it is created in batches (but this time with batch size set to 1000), to satisfy memory requirements. It is used to fetch document content when searching and giving text to the user.
-"indexer_metadata.jsonl" contains all the data about the indexer (all of its parameters). Therefore, it contains all the data passed to the tokenizer used by the indexer, as well as some aditional data:
-```
-    - file_path (path to the file that should be indexed)
-    - min_term_frequency (minimum number that the term should appear to be stored in the inverted index)
-    - output directory (path to directory where all .json and .db files are store)
-    - format of the inverted index
-```
+The process of answering the question is done in 2 steps:
+'''
+1) send a prompt to the LLM and ask him to analyze whether the user query is a question or not
+2) if the query was a question, give the most relevant document to the LLM and make him try to answer the question (using only the sent document)
+'''
 
-Default value of the min_term_frequency is set to 5.
+### Is the query a question?
+This part was solved by sending the following prompt to the LLM "Respond only with 'yes' or 'no'. Is the following sentence a question? Sentence: '{query}' (Portuguese)" whery query is a user query entered into a search engine.
 
-"offset_index.json" this file contains another list of pairs term: offset_in_final_index.jsonl. In other words, for given term, it says WHAT is the offset from the start of the final_index.jsonl to the postings list of the term that is the key value. It was created because originally, searching for the postings list by simply using final_index[term] or final_index.get(term) was simply too slow and resulted in search queries of a minute. The main reason for that was the sheer volume of the inverted index file (more than 2.5GB). Offset index has a much smaller size of around 13MB, therefore making the searching much faster.
+### What is the answer to question?
+If the answer we receive from the LLM is positive, we send another prompt """
+                You are an assistant. Use only the following text to answer the question. 
+                If the answer is not in the text, respond with 'Desculpe. Eu não sei.'
 
-### Searcher
+                Text:
+                {document}
 
-Searcher is used to process the user query -> to retrieve relevant documents from the inverted index (SearchEngine class takes an index path as parameter for initialization) and to rank documents using bm25 score. To ensure efficiency and stay within the memory limits, we decided not to load the entire index into memory, but instead use the offset index (offset_index.json) to locate terms dynamically when needed. The offset_index.json file stores the byte offset of each term inside final_index.jsonl. When a query term appears, the searcher looks up its offset, seeks directly to that position in the final_index.jsonl file, and retrieves the corresponding posting list without loading everything into memory.
+                Question:
+                {question}
+                """
 
-Queries are processed using the same Tokenizer that was used during indexing.
-The tokenization parameters are stored in indexer_metadata.jsonl, allowing the searcher to apply identical preprocessing steps when tokenizing user queries.
-After tokenization, for each query term, the corresponding offset is retrieved from offset_index.json, and the posting list is read from final_index.jsonl.
-Once all relevant postings are collected, documents are ranked using the BM25 score and sorted accordingly.
+Therefore, we provide an LLM with only the user query and the most relevant document (after neural reranking).
 
-For the Search Similar option, the selected document itself is used as the basis for the query.
-Since directly using the entire document would result in an overly long and inefficient query, we first calculate the tf-idf score for every term within the document.
-The top terms with the highest tf-idf scores are then selected to represent the document’s most significant keywords, and these terms are used as a query.
-After that, the BM25-based search is performed as in the standard case.
+In order to incorporate this change in the software, we had to slightly modify the Document class in the model.py module, so that it also contains the "answer" atribute, which is equal to None in case that the user query was not a question.
+
+The answer to the question is display directly below the search bar, between the search bar and the most relevant document (user has an option to remove the answer field, if he wants to).
+
+## Additional AI enhancments
+### User query improvement
+Sometimes, it can happen that the user query is not completely correct, e.g. contains the grammar errors etc. In order to combat that, we once again used gemini to provide corrected query, but only as a suggestion, with user being able to then select the recommended query as his own query. Here, we do not restrict the LLM to the information it uses, we simply send him the users query with the following instructions
+'''
+1. If the query is valid and understandable, respond exactly with the original query. 
+2. If the query is unclear, incomplete, or poorly phrased, suggest a corrected and improved version of the query. 
+3. Return only the query text. 
+4. The output should be in Portuguese.
+'''
+Improved query is then sent to the frontend and displayed, if it exists, with corresponding message "Voce pensou..."
+
+The first iteration of this AI enhancement used another model run locally on our GPU https://huggingface.co/pierreguillou/gpt2-small-portuguese . The reason why it could have potentially been good was that it was trained on Portuguese wikipedia by using transfer learning, but it showed really terrible results, therefore making us abandon this experiment.
+

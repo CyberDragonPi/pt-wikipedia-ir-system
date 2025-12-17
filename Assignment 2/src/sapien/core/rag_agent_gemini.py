@@ -55,10 +55,6 @@ class RagAgentGemini:
     
 
     def improve_query_if_needed(self, query: str) -> str | None:
-        """
-        Checks the user's query and returns an improved version if needed.
-        The prompt is in English, but the query itself should remain in Portuguese.
-        """
         prompt = f"""
         You are a query improvement assistant. 
         Your task is to review a user's search query. 
@@ -84,9 +80,8 @@ class RagAgentGemini:
             contents=prompt
         )
 
-        improved_query = response.text.strip()  # or response.text.strip() if your SDK uses that
+        improved_query = response.text.strip() 
 
-        # Return the improved query if it differs; otherwise None
         if query.lower() != improved_query.lower():
             return improved_query
         
