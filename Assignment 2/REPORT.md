@@ -48,13 +48,13 @@ The answer to the question is display directly below the search bar, between the
 
 ## Additional AI enhancments
 ### Best snippet extraction
-After the neural reranker selects the top document, instead of showing the whole text, we extract the single paragraph that best matches the user’s query.
+After the neural reranker selects the top document, we also extract the single paragraph that best matches the user’s query.
 It works as following:
 1. The document text is split into paragraphs using double line breaks (\n\n) as separators
 2. Each paragraph is paired with the original query and scored using the same neural reranker model (mmarco-mMiniLMv2-L12-H384-v1) we use for document reranking
 3. The paragraph with the highest relevance score is selected as the “best snippet”
 
-This snippet is included in the search result and displayed in the UI, so users can immediately see the most relevant part of the document without having to scan through everything.
+This snippet is included in the search result and displayed in the UI, so users can switch their view between see the most relevant part of the document without having to scan through everything, and the whole document.
 
 ### User query improvement
 Sometimes, it can happen that the user query is not completely correct, e.g. contains the grammar errors etc. In order to combat that, we once again used gemini to provide corrected query, but only as a suggestion, with user being able to then select the recommended query as his own query. Here, we do not restrict the LLM to the information it uses, we simply send him the users query with the following instructions
