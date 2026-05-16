@@ -80,21 +80,21 @@ Assignment 2/
 
 ## System Architecture
 User Query
-↓
+↓  
 Tokenizer (same for indexing & search)
-↓
+↓  
 Inverted Index Retrieval (BM25)
-↓
+↓  
 Top-100 Candidate Documents
-↓
+↓  
 Neural Reranker (MiniLM)
-↓
+↓  
 Top-K Final Results
-↓
-Optional Enhancements:
-├── Snippet Extraction
-├── Query Rewriting (LLM)
-└── RAG Answer Generation
+↓  
+Optional Enhancements:  
+├── Snippet Extraction  
+├── Query Rewriting (LLM)  
+└── RAG Answer Generation  
 
 
 
