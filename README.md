@@ -250,7 +250,6 @@ OR
 uv run src/sapien/entrypoints/cli [arguments]
 ```
 
-
 ## Teachers
 - José Luís Oliveira - jlo@ua.pt
 - Tiago Almeida - tiagomeloalmeida@ua.pt
