@@ -1,4 +1,4 @@
-# 🇵🇹 Portuguese Wikipedia Hybrid Search Engine (IR + Neural Reranking + RAG)
+# Portuguese Wikipedia Hybrid Search Engine (IR + Neural Reranking + RAG)
 
 A full-stack **information retrieval system for Portuguese Wikipedia**, combining classical inverted-index search, neural reranking, and retrieval-augmented generation (RAG). The project demonstrates an end-to-end search engine pipeline inspired by modern production IR systems.
 
