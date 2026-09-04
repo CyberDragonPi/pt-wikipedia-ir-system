@@ -260,6 +260,14 @@ The dataset is not included in the repository due to its size.
    uv run pre-commit install
    ```
 
+Optional: Gemini RAG
+
+The Gemini integration is optional. The search engine works without a Gemini API key.
+
+To enable the RAG functionality, create a .env file in the project root:
+
+GEMINI_API_KEY=your_api_key_here
+
 
 ## Usage
 
