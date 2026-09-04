@@ -5,7 +5,7 @@ description = "Template for classes - RI 2025"
 authors = [
     {name = "Tiago Almeida", email = "tiago.almeida@alchemi.bio"}
 ]
-readme = "README.md"
+readme = README.md
 requires-python = ">=3.13"
 dependencies = [
     "pyarrow>=19.0.1",
