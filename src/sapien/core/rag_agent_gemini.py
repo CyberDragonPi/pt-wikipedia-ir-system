@@ -6,20 +6,18 @@ from google import genai
 class RagAgentGemini:
     def __init__(self):
         load_dotenv()
+
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
 
         if not self.gemini_api_key:
-            raise ValueError("GEMINI_API_KEY nije postavljen u varijabli okoline!")
-        
-        #print(f"Groq api key: {self.groq_api_key}")
+            self.gemini_client = None
+            self.model = "gemini-2.5-flash-lite"
+            return
 
-        self.gemini_client = genai.Client()
+        self.gemini_client = genai.Client(
+            api_key=self.gemini_api_key
+        )
         self.model = "gemini-2.5-flash-lite"
-
-        #response = self.gemini_client.models.generate_content(
-        #    model=self.model,
-        #   contents="Explain how AI works in a few words"
-        #)
 
 
     def check_if_its_question(self, query: str) -> str:
@@ -86,3 +84,8 @@ class RagAgentGemini:
             return improved_query
         
         return None
+
+
+    @property
+    def enabled(self) -> bool:
+        return self.gemini_client is not None

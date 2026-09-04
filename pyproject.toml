@@ -5,7 +5,7 @@ description = "Template for classes - RI 2025"
 authors = [
     {name = "Tiago Almeida", email = "tiago.almeida@alchemi.bio"}
 ]
-readme = README.md
+readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "pyarrow>=19.0.1",
@@ -18,6 +18,7 @@ dependencies = [
     "sentence-transformers>=5.1.2",
     "google-genai>=1.52.0",
     "python-dotenv>=1.1.1",
+    "torch==2.9.1",
 ]
 
 [dependency-groups]
@@ -44,31 +45,31 @@ src = ["src"]
 
 [tool.ruff.lint]
 ignore = [
-  "COM812", # -- over-aggressively insists on trailing commas where not desired --
+  "COM812",
 ]
 select = [
-  "C4",      # -- flake8-comprehensions --
-  "COM",     # -- flake8-commas --
-  "D200",    # -- short docstring on one line --
-  "D205",    # -- docstring: blank line between summary line and further text --
-  "D209",    # -- multi-line docstring closing quotes on own line --
-  "D212",    # -- docstring summary line starts immediately after quotes --
-  "E",       # -- pycodestyle errors --
-  "F",       # -- pyflakes --
-  "I",       # -- isort (imports) --
-  "PLR0402", # -- Name compared with itself like `foo == foo` --
-  "PT",      # -- flake8-pytest-style --
-  "SIM",     # -- flake8-simplify --
-  "UP006",   # -- use built-in generics like `list` instead of `List` from `typing` --
-  "UP007",   # -- prefer `A | B` over `Union[A, B]` --
-  "UP008",   # -- use modern `super()` call without arguments --
-  "UP015",   # -- redundant `open()` mode parameter (like "r" is default) --
-  "UP017",   # -- use `datetime.UTC` instead of `datetime.timezone.utc` --
-  "UP018",   # -- unnecessary {literal_type} call like `str("abc")`. (rewrite as a literal) --
-  "UP032",   # -- use f-string instead of `.format()` call --
-  "UP034",   # -- avoid extraneous parentheses --
-  "UP040",   # -- prefer `type Xyz = ...` over `Xyz = TypeAlias(...)` --
-  "W291",    # -- remove trailing whitespace from end of line --
+  "C4",
+  "COM",
+  "D200",
+  "D205",
+  "D209",
+  "D212",
+  "E",
+  "F",
+  "I",
+  "PLR0402",
+  "PT",
+  "SIM",
+  "UP006",
+  "UP007",
+  "UP008",
+  "UP015",
+  "UP017",
+  "UP018",
+  "UP032",
+  "UP034",
+  "UP040",
+  "W291",
 ]
 
 [tool.pyright]
@@ -81,3 +82,11 @@ reportUnnecessaryTypeIgnoreComment = true
 verboseOutput = true
 pythonVersion = "3.13"
 pythonPlatform = "All"
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch" }

@@ -37,13 +37,13 @@ def search(query: str, num_results: int = 10) -> SearchResponse:
 
         results.append(Document(id=doc_id, title=title, content=content, best_snippet=best_snippet))
 
-    if _rag_agent.check_if_its_question(query).lower() == "yes":
+    if _rag_agent.enabled and _rag_agent.check_if_its_question(query).lower() == "yes":
         answer = _rag_agent.answer_question_with_document(query, results[0].content)
         print(f"Answer to question: {answer}")
     else:
         answer = None
     
-    improved_query: str | None = _rag_agent.improve_query_if_needed(query)
+    improved_query: str | None = _rag_agent.improve_query_if_needed(query) if _rag_agent.enabled else None
 
     return SearchResponse(results=results, answer=answer, improved_query=improved_query)
 
