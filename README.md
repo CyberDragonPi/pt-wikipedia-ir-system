@@ -228,16 +228,40 @@ unclear query → corrected version
 output always in Portuguese
 
 
+## Prerequisites
+
+Before running the project, make sure you have:
+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- Python 3.13
+- The Portuguese Wikipedia dataset used by the indexer
+
+## Dataset
+
+This project uses a Portuguese Wikipedia dataset containing Wikipedia articles
+and redirects in Apache Arrow format.
+
+- **Source:** Portuguese Wikipedia
+- **Format:** Apache Arrow (`.arrow`)
+- **Download:** [ptwiki-articles-with-redirects.arrow](https://www.dropbox.com/scl/fi/5jgmnyb6r6fqz1jheqogn/ptwiki-articles-with-redirects.arrow?rlkey=fp888qbb0v1urffhw5lcqlppd&st=prqkboqd&dl=1)
+
+The dataset is not included in the repository due to its size.
+
+## Setup 
+1. Install dependencies:
+   ```bash
+   uv sync
+   ```
+
+2. You don't need to activate the environment manually. Just let `uv` handle the activation automatically by prefixing your commands with `uv run`.
+
+3. Install pre-commit hooks (runs linting on every commit):
+   ```bash
+   uv run pre-commit install
+   ```
+
+
 ## Usage
-
-### Running the Search API
-
-Start the FastAPI server:
-```bash
-uv run uvicorn sapien.entrypoints.asgi:app --reload
-```
-- **Static Web Interface**: `http://localhost:8000`
-- **API docs**: `http://localhost:8000/docs`
 
 ### Running the CLI Indexer
 
@@ -249,6 +273,17 @@ OR
 ```bash
 uv run src/sapien/entrypoints/cli [arguments]
 ```
+
+### Running the Search API
+
+Start the FastAPI server:
+```bash
+uv run uvicorn sapien.entrypoints.asgi:app --reload
+```
+- **Static Web Interface**: `http://localhost:8000`
+- **API docs**: `http://localhost:8000/docs`
+
+
 
 ## Teachers
 - José Luís Oliveira - jlo@ua.pt
